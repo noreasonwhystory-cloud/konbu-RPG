@@ -119,8 +119,17 @@
                 </div>
 
                 <div id="battle-controls">
-                    <button id="btn-toggle-battle" class="btn active">自動戦闘中</button>
-                    <button id="btn-retreat" class="btn btn-secondary">1階に戻る</button>
+                    <div class="control-row">
+                        <button id="btn-toggle-auto" class="btn active">AUTO: ON</button>
+                        <button id="btn-retreat" class="btn btn-secondary">撤退</button>
+                    </div>
+                    <div id="manual-controls" class="control-row hidden">
+                        <button id="btn-attack" class="btn">攻撃</button>
+                        <button id="btn-skill" class="btn btn-skill">スキル</button>
+                    </div>
+                    <div id="proceed-controls" class="control-row hidden">
+                        <button id="btn-next-floor" class="btn btn-success">次の階層へ進む</button>
+                    </div>
                 </div>
 
                 <div id="battle-log"></div>
