@@ -260,19 +260,42 @@ function generateEnemy(floor) {
 }
 
 function generateLoot(floor) {
-    if (state.inventory.length >= state.maxInventory) return;
+    if (state.inventory.length >= state.maxInventory) {
+        logMessage("インベントリが満杯です！", "danger");
+        return;
+    }
     const type = ['weapon', 'armor', 'accessory'][Math.floor(Math.random()*3)];
     let rar = getRandomRarity();
     const fl = Math.max(1, floor + Math.floor(Math.random()*5)-2);
-    let stat = Math.floor(10 * Math.pow(1.03, fl) * rar.statMult);
+    
+    // Base stat calculation
+    let baseStatValue = 10 * Math.pow(1.03, fl) * rar.statMult;
+    // Add random variance: +/- 10%
+    const variance = 0.9 + (Math.random() * 0.2); // 0.9 to 1.1
+    let finalStat = Math.floor(baseStatValue * variance);
+    if (finalStat < 1) finalStat = 1;
+
     let i = { id: Date.now() + Math.floor(Math.random()*1000), type, rarity: rar, lvl: fl };
-    const p = ["粗悪な", "普通の", "鋭い", "重い", "魔法の", "名工の", "伝説の", "神話の", "虚無の"][Math.floor(Math.random()*9)];
+    const prefixes = ["粗悪な", "普通の", "鋭い", "重い", "魔法の", "名工の", "伝説の", "神話の", "虚無の"];
+    const p = prefixes[Math.floor(Math.random() * prefixes.length)];
     const ns = { weapon: "の剣", armor: "の鎧", accessory: "の指輪" };
     i.name = `[Lv.${fl}] ${p}${ns[type]}`;
-    if (type === 'weapon') i.atk = stat; else if (type === 'armor') i.def = stat;
-    else { if (Math.random()>0.5) { i.atk=Math.floor(stat*0.4); i.def=Math.floor(stat*0.4); } else i.hp=stat*5; }
-    i.value = Math.floor(stat * rar.statMult);
-    state.inventory.push(i); logMessage(`${i.name} を獲得！`, "loot"); updateInventoryUI();
+    
+    if (type === 'weapon') i.atk = finalStat; 
+    else if (type === 'armor') i.def = finalStat;
+    else { 
+        if (Math.random() > 0.5) { 
+            i.atk = Math.floor(finalStat * 0.4); 
+            i.def = Math.floor(finalStat * 0.4); 
+        } else {
+            i.hp = finalStat * 5; 
+        }
+    }
+    
+    i.value = Math.floor(finalStat * rar.statMult * 0.5); // Adjust sell value
+    state.inventory.push(i); 
+    logMessage(`${i.name} (性能:${finalStat}) を獲得！`, "loot"); 
+    updateInventoryUI();
 }
 
 function getRandomRarity() {
