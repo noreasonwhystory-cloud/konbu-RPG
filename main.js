@@ -1,18 +1,24 @@
-// --- Global Error Handler for Mobile Debugging ---
+// --- Global Error Handler ---
 window.onerror = function(msg, url, lineNo, columnNo, error) {
     const log = document.getElementById("battle-log");
     if (log) {
-        const d = document.createElement("div");
-        d.className = "log-entry danger";
-        d.innerText = `Error: ${msg} [Line: ${lineNo}]`;
-        log.appendChild(d);
+        const d = document.createElement("div"); d.className = "log-entry danger";
+        d.innerText = `Error: ${msg} [Line: ${lineNo}]`; log.appendChild(d);
     }
     return false;
 };
 
 // --- Game State & Data ---
-const GAME_VERSION = "1.1";
-const SAVE_KEY = "konbuRpgSaveData_v11";
+const GAME_VERSION = "1.2";
+const SAVE_KEY = "konbuRpgSaveData_v12";
+
+const ELEMENTS = {
+    none: { name: "無", color: "#94a3b8", weakTo: "none" },
+    fire: { name: "火", color: "#ef4444", weakTo: "water" },
+    water: { name: "水", color: "#3b82f6", weakTo: "wind" },
+    wind: { name: "風", color: "#10b981", weakTo: "earth" },
+    earth: { name: "土", color: "#f59e0b", weakTo: "fire" }
+};
 
 const getInitialState = () => ({
     floor: 1, gold: 0, kamui: 0,
@@ -25,6 +31,8 @@ const getInitialState = () => ({
     inventory: [], maxInventory: 50,
     party: [],
     kamuiUpgrades: { expBonus: 0, goldBonus: 0, dropRateBonus: 0, statsBonus: 0 },
+    achievements: { kills: {}, totalKills: 0 },
+    currentTitleId: null,
     isAutoMode: false 
 });
 
@@ -41,22 +49,29 @@ let skillCooldowns = {};
 
 // --- Data Definitions ---
 
+const TITLES = [
+    { id: 'novice_slayer', name: 'スライムハンター', req: { 'スライム': 10 }, bonus: { atk: 5 }, desc: 'スライム10体撃破: ATK+5' },
+    { id: 'goblin_slayer', name: 'ゴブリンキラー', req: { 'ゴブリン': 20 }, bonus: { def: 10 }, desc: 'ゴブリン20体撃破: DEF+10' },
+    { id: 'dragon_slayer', name: 'ドラゴンスレイヤー', req: { 'ドラゴン': 5 }, bonus: { atkPct: 0.1 }, desc: 'ドラゴン5体撃破: ATK+10%' },
+    { id: 'collector', name: '収集家', req: { 'total_loot': 50 }, bonus: { goldPct: 0.2 }, desc: 'アイテム50個獲得: ゴールド+20%' }
+];
+
 const CLASSES = {
-    novice: { name: "見習い", hpPerLvl: 5, atkPerLvl: 1, defPerLvl: 0.5, atkMult: 1.0, defMult: 1.0, hpMult: 1.0, skills: [ { id: 'bash', name: 'バッシュ', unlockLvl: 1, mult: 1.5, cd: 3, desc: '1.5倍ダメ' }, { id: 'focus', name: '精神集中', unlockLvl: 5, mult: 2.2, cd: 5, desc: '2.2倍ダメ' } ] },
-    warrior: { name: "戦士", hpPerLvl: 8, atkPerLvl: 2, defPerLvl: 1, atkMult: 1.2, defMult: 1.1, hpMult: 1.1, skills: [ { id: 'power', name: '強撃', unlockLvl: 1, mult: 2.5, cd: 4, desc: '2.5倍ダメ' }, { id: 'whirlwind', name: '旋風斬', unlockLvl: 10, mult: 4.0, cd: 8, desc: '4.0倍ダメ' } ] },
-    knight: { name: "騎士", hpPerLvl: 12, atkPerLvl: 1, defPerLvl: 2, atkMult: 1.0, defMult: 1.5, hpMult: 1.3, skills: [ { id: 'holy', name: 'ホーリーライト', unlockLvl: 1, mult: 1.2, heal: 0.1, cd: 5, desc: '攻撃＋回復' }, { id: 'shield', name: 'シールドバッシュ', unlockLvl: 5, mult: 1.8, stun: true, cd: 6, desc: '攻撃＋敵遅延' } ] },
-    berserker: { name: "狂戦士", hpPerLvl: 6, atkPerLvl: 3, defPerLvl: 0.2, atkMult: 1.8, defMult: 0.5, hpMult: 0.8, skills: [ { id: 'blood', name: 'ブラッドラスト', unlockLvl: 1, mult: 4.0, recoil: 0.1, cd: 5, desc: '4倍ダメ(反動)' }, { id: 'exec', name: '処刑', unlockLvl: 10, mult: 6.0, recoil: 0.2, cd: 10, desc: '6倍ダメ(反動)' } ] },
-    thief: { name: "盗賊", hpPerLvl: 5, atkPerLvl: 1.5, defPerLvl: 0.5, atkMult: 1.1, defMult: 0.8, hpMult: 0.9, skills: [ { id: 'steal', name: 'ぶんどる', unlockLvl: 1, mult: 1.2, gold: true, cd: 4, desc: '攻撃＋G' }, { id: 'triple', name: '三連斬', unlockLvl: 5, mult: 3.5, cd: 7, desc: '3.5倍ダメ' } ] }
+    novice: { name: "見習い", hpPerLvl: 5, atkPerLvl: 1, defPerLvl: 0.5, atkMult: 1.0, defMult: 1.0, hpMult: 1.0, image: "hero.png", skills: [ { id: 'bash', name: 'バッシュ', unlockLvl: 1, mult: 1.5, cd: 3, desc: '1.5倍ダメ' } ] },
+    warrior: { name: "戦士", hpPerLvl: 8, atkPerLvl: 2, defPerLvl: 1, atkMult: 1.2, defMult: 1.1, hpMult: 1.1, image: "hero_warrior.png", skills: [ { id: 'power', name: '強撃', unlockLvl: 1, mult: 2.5, cd: 4, desc: '2.5倍ダメ' } ] },
+    knight: { name: "騎士", hpPerLvl: 12, atkPerLvl: 1, defPerLvl: 2, atkMult: 1.0, defMult: 1.5, hpMult: 1.3, image: "hero_knight.png", skills: [ { id: 'holy', name: 'ホーリー', unlockLvl: 1, mult: 1.2, heal: 0.1, cd: 5, desc: '攻撃＋回復' } ] },
+    berserker: { name: "狂戦士", hpPerLvl: 6, atkPerLvl: 3, defPerLvl: 0.2, atkMult: 1.8, defMult: 0.5, hpMult: 0.8, image: "hero_berserker.png", skills: [ { id: 'blood', name: '血の渇き', unlockLvl: 1, mult: 4.0, recoil: 0.1, cd: 5, desc: '4倍ダメ(反動)' } ] },
+    thief: { name: "盗賊", hpPerLvl: 5, atkPerLvl: 1.5, defPerLvl: 0.5, atkMult: 1.1, defMult: 0.8, hpMult: 0.9, image: "hero_thief.png", skills: [ { id: 'steal', name: 'ぶんどる', unlockLvl: 1, mult: 1.2, gold: true, cd: 4, desc: '攻撃＋G' } ] }
 };
 
 const ENEMY_TYPES = [
-    { name: "スライム", hpMult: 0.8, atkMult: 0.8, defMult: 0.5, image: "slime.png" },
-    { name: "ゴブリン", hpMult: 1.0, atkMult: 1.0, defMult: 0.8, image: "goblin.png" },
-    { name: "ウルフ", hpMult: 0.9, atkMult: 1.2, defMult: 0.6, image: "wolf.png" },
-    { name: "スケルトン", hpMult: 0.8, atkMult: 1.5, defMult: 0.5, image: "skeleton.png" },
-    { name: "オーク", hpMult: 1.5, atkMult: 1.2, defMult: 1.0, image: "orc.png" },
-    { name: "ガーゴイル", hpMult: 1.5, atkMult: 1.0, defMult: 2.0, image: "gargoyle.png" },
-    { name: "ドラゴン", hpMult: 3.0, atkMult: 2.5, defMult: 2.0, image: "dragon.png" }
+    { name: "スライム", hpMult: 0.8, atkMult: 0.8, defMult: 0.5, element: 'water', image: "slime.png" },
+    { name: "ゴブリン", hpMult: 1.0, atkMult: 1.0, defMult: 0.8, element: 'earth', image: "goblin.png" },
+    { name: "ウルフ", hpMult: 0.9, atkMult: 1.2, defMult: 0.6, element: 'wind', image: "wolf.png" },
+    { name: "スケルトン", hpMult: 0.8, atkMult: 1.5, defMult: 0.5, element: 'none', image: "skeleton.png" },
+    { name: "オーク", hpMult: 1.5, atkMult: 1.2, defMult: 1.0, element: 'fire', image: "orc.png" },
+    { name: "ガーゴイル", hpMult: 1.5, atkMult: 1.0, defMult: 2.0, element: 'earth', image: "gargoyle.png" },
+    { name: "ドラゴン", hpMult: 3.0, atkMult: 2.5, defMult: 2.0, element: 'fire', image: "dragon.png" }
 ];
 
 const RARITIES = [
@@ -95,12 +110,23 @@ function loadGame() {
     refreshTavern(); updateAllUI();
 }
 
+function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+function getElementMult(atkElem, defElem) {
+    if (atkElem === 'none' || defElem === 'none') return 1.0;
+    if (ELEMENTS[atkElem].weakTo === defElem) return 0.5; // Atk is weak to Def
+    if (ELEMENTS[defElem].weakTo === atkElem) return 1.5; // Atk is strong against Def
+    return 1.0;
+}
+
 function getHeroTotalStats() {
     const currentClass = CLASSES[state.hero.classId] || CLASSES.novice;
     const kamuiMult = 1 + (state.kamuiUpgrades.statsBonus * 0.1);
+    
     let atk = state.hero.baseAtk;
     let def = state.hero.baseDef;
     let maxHp = state.hero.maxHp;
+
     if (state.hero.classLevels) {
         for (let cid in state.hero.classLevels) {
             const lvl = state.hero.classLevels[cid];
@@ -112,12 +138,36 @@ function getHeroTotalStats() {
             }
         }
     }
+
+    // Apply Title Bonus
+    if (state.currentTitleId) {
+        const title = TITLES.find(t => t.id === state.currentTitleId);
+        if (title && title.bonus) {
+            if (title.bonus.atk) atk += title.bonus.atk;
+            if (title.bonus.def) def += title.bonus.def;
+            if (title.bonus.atkPct) atk *= (1 + title.bonus.atkPct);
+        }
+    }
+
+    // Apply class multipliers
     atk *= currentClass.atkMult; def *= currentClass.defMult; maxHp *= currentClass.hpMult;
+    // Apply kamui
     atk *= kamuiMult; def *= kamuiMult; maxHp *= kamuiMult;
+
+    let setCounts = {};
     for (const key in state.equipment) {
         const i = state.equipment[key];
-        if (i) { atk += (i.atk || 0); def += (i.def || 0); maxHp += (i.hp || 0); }
+        if (i) { 
+            atk += (i.atk || 0); def += (i.def || 0); maxHp += (i.hp || 0); 
+            if (i.prefix) setCounts[i.prefix] = (setCounts[i.prefix] || 0) + 1;
+        }
     }
+
+    // Set Bonus: 3 pieces of same prefix
+    for (let p in setCounts) {
+        if (setCounts[p] >= 3) { atk *= 1.2; def *= 1.2; maxHp *= 1.2; }
+    }
+
     return { atk: Math.floor(atk), def: Math.floor(def), maxHp: Math.floor(maxHp) };
 }
 
@@ -149,18 +199,26 @@ function executeAttack(multiplier = 1, isSkill = false) {
     if (!currentEnemy || canProceed || isActing) return;
     isActing = true; updateBattleControls();
     const stats = getHeroTotalStats();
-    let dmg = Math.max(1, Math.floor((stats.atk - currentEnemy.def) * multiplier) + Math.floor(Math.random() * 5) - 2);
+    
+    // Element Bonus
+    const heroElem = state.equipment.weapon ? state.equipment.weapon.element : 'none';
+    const eMult = getElementMult(heroElem, currentEnemy.element);
+    
+    let dmg = Math.max(1, Math.floor((stats.atk * eMult - currentEnemy.def) * multiplier) + randomInt(-2, 2));
     currentEnemy.hp -= dmg;
+    
     const heroEl = document.querySelector(".hero");
     if (heroEl) { heroEl.classList.remove("attack-anim-hero"); void heroEl.offsetWidth; heroEl.classList.add("attack-anim-hero"); }
-    logMessage(`${isSkill ? '特技！' : ''}勇者の攻撃！ ${dmg}ダメージ`);
+    
+    logMessage(`${isSkill ? '特技！' : ''}勇者の攻撃！ ${dmg}ダメージ` + (eMult > 1 ? " (弱点!)" : (eMult < 1 ? " (耐性...)" : "")));
     updateEnemyHP();
+
     if (currentEnemy.hp <= 0) {
         onEnemyDefeated();
     } else {
         state.party.forEach(m => {
             if (!currentEnemy || currentEnemy.hp <= 0) return;
-            let d = Math.max(1, m.atk - (currentEnemy.def*0.5) + Math.floor(Math.random()*3)-1);
+            let d = Math.max(1, m.atk - (currentEnemy.def*0.5) + randomInt(-1, 1));
             currentEnemy.hp -= d; logMessage(`${m.name}の追撃！ ${d}ダメージ`, "merc");
         });
         updateEnemyHP();
@@ -172,30 +230,50 @@ function executeAttack(multiplier = 1, isSkill = false) {
 function enemyTurn() {
     if (!currentEnemy || currentEnemy.hp <= 0 || canProceed) { isActing = false; updateBattleControls(); return; }
     const stats = getHeroTotalStats();
-    let d = Math.max(1, currentEnemy.atk - stats.def + Math.floor(Math.random()*3)-1);
+    
+    // Enemy Element Bonus
+    const heroElem = state.equipment.armor ? state.equipment.armor.element : 'none';
+    const eMult = getElementMult(currentEnemy.element, heroElem);
+    
+    let d = Math.max(1, Math.floor(currentEnemy.atk * eMult - stats.def) + randomInt(-1, 1));
     updateHeroHP(-d);
+    
     const enemyEl = document.querySelector(".enemy");
     if (enemyEl) { enemyEl.classList.remove("attack-anim-enemy"); void enemyEl.offsetWidth; enemyEl.classList.add("attack-anim-enemy"); }
-    logMessage(`${currentEnemy.name}の反撃！ ${d}ダメージ`, "damage");
+    
+    logMessage(`${currentEnemy.name}の反撃！ ${d}ダメージ` + (eMult > 1 ? " (弱点!)" : ""));
+    
     if (state.hero.hp <= 0) {
-        logMessage("敗北した...", "danger"); state.floor = 1; state.hero.hp = getHeroTotalStats().maxHp;
+        logMessage("敗北...", "danger"); state.floor = 1; state.hero.hp = getHeroTotalStats().maxHp;
         currentEnemy = null; canProceed = false; isActing = false;
         updateAllUI(); saveGame(); startBattle();
     } else { isActing = false; updateBattleControls(); }
 }
 
 function onEnemyDefeated() {
-    logMessage(`${currentEnemy.name} を撃破！`, "system");
+    logMessage(`${currentEnemy.name} 撃破！`, "system");
+    
+    // Track Achievements
+    const baseName = currentEnemy.name.replace("[BOSS] ", "").replace("[レア] ", "");
+    state.achievements.kills[baseName] = (state.achievements.kills[baseName] || 0) + 1;
+    state.achievements.totalKills++;
+    
     let expM = 1 + (state.kamuiUpgrades.expBonus * 0.2);
     let goldM = 1 + (state.kamuiUpgrades.goldBonus * 0.2);
+    if (state.currentTitleId === 'collector') goldM += 0.2;
+
     let expG = Math.floor(10 * Math.pow(1.03, state.floor) * expM);
     let goldG = Math.floor(5 * Math.pow(1.03, state.floor) * goldM);
     if (currentEnemy.isBoss) { expG *= 3; goldG *= 3; }
+    if (currentEnemy.isRare) { expG *= 10; goldG *= 10; }
+
     state.hero.exp += expG; state.hero.classExp[state.hero.classId] += expG;
     state.gold += goldG; checkLevelUp();
-    if (Math.random() < (0.3 * (1 + state.kamuiUpgrades.dropRateBonus * 0.25)) || currentEnemy.isBoss) generateLoot(state.floor);
-    canProceed = true; isActing = false;
-    updateAllUI(); saveGame();
+    
+    let dropChance = 0.3 * (1 + state.kamuiUpgrades.dropRateBonus * 0.25);
+    if (Math.random() < dropChance || currentEnemy.isBoss || currentEnemy.isRare) generateLoot(state.floor);
+    
+    canProceed = true; isActing = false; updateAllUI(); saveGame();
 }
 
 function checkLevelUp() {
@@ -219,11 +297,9 @@ function startBattle() {
     if (canProceed) return;
     if (!currentEnemy) {
         currentEnemy = generateEnemy(state.floor);
-        const nameEl = document.getElementById("enemy-name");
-        if (nameEl) nameEl.innerText = currentEnemy.name;
-        const spriteEl = document.getElementById("enemy-sprite");
-        if (spriteEl) spriteEl.src = "assets/" + currentEnemy.image;
-        updateEnemyHP(); logMessage(`${currentEnemy.name} (階層.${state.floor}) が出現！`, "system");
+        const n = document.getElementById("enemy-name"); if(n) n.innerText = currentEnemy.name;
+        const s = document.getElementById("enemy-sprite"); if(s) s.src = "assets/" + currentEnemy.image;
+        updateEnemyHP(); logMessage(`${currentEnemy.name} (階層.${state.floor}) 出現！`, currentEnemy.isRare ? "loot" : "system");
     }
     if (!battleInterval) battleInterval = setInterval(battleTick, 1000);
 }
@@ -251,55 +327,41 @@ function nextFloor() {
 // --- Utils ---
 
 function generateEnemy(floor) {
-    if (!ENEMY_TYPES) return { name: "Error", hp: 100, maxHp: 100, atk: 1, def: 1, image: "slime.png" };
-    const t = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
-    const boss = floor % 10 === 0;
-    const m = Math.pow(1.03, floor - 1) * (boss ? 5 : 1);
+    const isRare = Math.random() < 0.05;
+    const t = isRare ? { name: "メタルこんぶ", hpMult: 0.1, atkMult: 0.1, defMult: 5.0, element: 'none', image: "slime.png" } : ENEMY_TYPES[randomInt(0, ENEMY_TYPES.length - 1)];
+    const boss = floor % 10 === 0 && !isRare;
+    const m = Math.pow(1.03, floor - 1) * (boss ? 5 : 1) * (isRare ? 2 : 1);
     const hp = Math.floor(30 * t.hpMult * m);
-    return { name: boss ? `[BOSS] ${t.name}` : t.name, maxHp: hp, hp, atk: Math.floor(8 * t.atkMult * m), def: Math.floor(3 * t.defMult * m), isBoss: boss, image: t.image };
+    return { name: (boss ? "[BOSS] " : (isRare ? "[レア] " : "")) + t.name, maxHp: hp, hp, atk: Math.floor(8 * t.atkMult * m), def: Math.floor(3 * t.defMult * m), isBoss: boss, isRare, element: t.element, image: t.image };
 }
 
 function generateLoot(floor) {
-    if (state.inventory.length >= state.maxInventory) {
-        logMessage("インベントリが満杯です！", "danger");
-        return;
-    }
-    const type = ['weapon', 'armor', 'accessory'][Math.floor(Math.random()*3)];
+    if (state.inventory.length >= state.maxInventory) return;
+    const type = ['weapon', 'armor', 'accessory'][randomInt(0, 2)];
     let rar = getRandomRarity();
-    const fl = Math.max(1, floor + Math.floor(Math.random()*5)-2);
+    const fl = Math.max(1, floor + randomInt(-2, 2));
+    let baseVal = 10 * Math.pow(1.03, fl) * rar.statMult;
+    const varMult = 0.9 + (Math.random() * 0.2);
+    let finalVal = Math.floor(baseVal * varMult);
     
-    // Base stat calculation
-    let baseStatValue = 10 * Math.pow(1.03, fl) * rar.statMult;
-    // Add random variance: +/- 10%
-    const variance = 0.9 + (Math.random() * 0.2); // 0.9 to 1.1
-    let finalStat = Math.floor(baseStatValue * variance);
-    if (finalStat < 1) finalStat = 1;
-
-    let i = { id: Date.now() + Math.floor(Math.random()*1000), type, rarity: rar, lvl: fl };
     const prefixes = ["粗悪な", "普通の", "鋭い", "重い", "魔法の", "名工の", "伝説の", "神話の", "虚無の"];
-    const p = prefixes[Math.floor(Math.random() * prefixes.length)];
-    const ns = { weapon: "の剣", armor: "の鎧", accessory: "の指輪" };
-    i.name = `[Lv.${fl}] ${p}${ns[type]}`;
+    const p = prefixes[randomInt(0, prefixes.length - 1)];
+    const names = { weapon: "の剣", armor: "の鎧", accessory: "の指輪" };
     
-    if (type === 'weapon') i.atk = finalStat; 
-    else if (type === 'armor') i.def = finalStat;
-    else { 
-        if (Math.random() > 0.5) { 
-            i.atk = Math.floor(finalStat * 0.4); 
-            i.def = Math.floor(finalStat * 0.4); 
-        } else {
-            i.hp = finalStat * 5; 
-        }
-    }
+    // Random Element
+    const elemKeys = Object.keys(ELEMENTS);
+    const elem = elemKeys[randomInt(0, elemKeys.length - 1)];
+
+    let i = { id: Date.now() + randomInt(0,999), type, rarity: rar, lvl: fl, prefix: p, element: elem, name: `[Lv.${fl}] ${p}${names[type]}` };
+    if (type === 'weapon') i.atk = finalVal;
+    else if (type === 'armor') i.def = finalVal;
+    else { if (Math.random() > 0.5) { i.atk = Math.floor(finalVal*0.4); i.def = Math.floor(finalVal*0.4); } else i.hp = finalVal*5; }
     
-    i.value = Math.floor(finalStat * rar.statMult * 0.5); // Adjust sell value
-    state.inventory.push(i); 
-    logMessage(`${i.name} (性能:${finalStat}) を獲得！`, "loot"); 
-    updateInventoryUI();
+    i.value = Math.floor(finalVal * rar.statMult * 0.5);
+    state.inventory.push(i); logMessage(`${i.name} 獲得！`, "loot"); updateInventoryUI();
 }
 
 function getRandomRarity() {
-    if (!RARITIES) return { name: 'コモン', colorClass: 'rarity-common', statMult: 1 };
     const r = Math.random() * 100;
     if (r < 60) return RARITIES[0]; if (r < 85) return RARITIES[1]; if (r < 95) return RARITIES[2]; if (r < 99) return RARITIES[3]; return RARITIES[4];
 }
@@ -307,8 +369,8 @@ function getRandomRarity() {
 function refreshTavern() {
     availableMercs = []; const fl = Math.max(1, Math.floor(state.floor / 5));
     for (let i=0; i<3; i++) {
-        const n = ["アーサー", "ランスロット", "ジャンヌ", "ジークフリート", "ロビン", "マーリン"][Math.floor(Math.random()*6)];
-        const l = Math.max(1, fl + Math.floor(Math.random()*5)-2);
+        const n = ["アーサー", "ランスロット", "ジャンヌ", "ジークフリート", "ロビン", "マーリン"][randomInt(0, 5)];
+        const l = Math.max(1, fl + randomInt(-2, 2));
         availableMercs.push({ id: Date.now()+i, name: n, level: l, atk: Math.floor(10 * Math.pow(1.03, l)), price: Math.floor(100*Math.pow(1.5, l)) });
     }
 }
@@ -316,17 +378,10 @@ function refreshTavern() {
 // --- UI ---
 
 function updateAllUI() {
-    updateHeaderUI();
-    const sel = document.getElementById("hero-class-select");
-    if (sel) {
-        sel.innerHTML = "";
-        for (let key in CLASSES) {
-            let opt = document.createElement("option"); opt.value = key; opt.innerText = CLASSES[key].name;
-            if(state.hero.classId === key) opt.selected = true;
-            sel.appendChild(opt);
-        }
-    }
-    updateStatusUI(); updateEquipmentUI(); updateInventoryUI(); updatePartyUI(); updateKamuiUI(); updateBattleControls(); updateEnemyHP();
+    updateHeaderUI(); updateStatusUI(); updateEquipmentUI(); updateInventoryUI(); updatePartyUI(); updateKamuiUI(); updateBattleControls(); updateEnemyHP();
+    // Update Hero Sprite
+    const heroSprite = document.getElementById("hero-sprite");
+    if (heroSprite) heroSprite.src = "assets/" + (CLASSES[state.hero.classId]?.image || "hero.png");
 }
 
 function updateBattleControls() {
@@ -343,13 +398,31 @@ function updateBattleControls() {
 function updateStatusUI() {
     const stats = getHeroTotalStats(); const cid = state.hero.classId; const c = CLASSES[cid] || CLASSES.novice;
     const lvlEl = document.getElementById("hero-level");
-    if (lvlEl) lvlEl.innerHTML = `総合Lv.${state.hero.level} / ${c.name}Lv.${state.hero.classLevels[cid]}`;
-    const hpEl = document.getElementById("hero-hp"); if (hpEl) hpEl.innerText = Math.floor(state.hero.hp);
-    const mhpEl = document.getElementById("hero-max-hp"); if (mhpEl) mhpEl.innerText = stats.maxHp;
-    const atkEl = document.getElementById("hero-atk"); if (atkEl) atkEl.innerText = stats.atk;
-    const defEl = document.getElementById("hero-def"); if (defEl) defEl.innerText = stats.def;
-    const expEl = document.getElementById("hero-exp"); if (expEl) expEl.innerText = state.hero.exp;
-    const nexpEl = document.getElementById("hero-next-exp"); if (nexpEl) nexpEl.innerText = state.hero.nextExp;
+    const title = TITLES.find(t => t.id === state.currentTitleId)?.name || "なし";
+    if (lvlEl) lvlEl.innerHTML = `総合Lv.${state.hero.level} / ${c.name}Lv.${state.hero.classLevels[cid]}<br><small>称号: ${title}</small>`;
+    document.getElementById("hero-hp").innerText = Math.floor(state.hero.hp);
+    document.getElementById("hero-max-hp").innerText = stats.maxHp;
+    document.getElementById("hero-atk").innerText = stats.atk;
+    document.getElementById("hero-def").innerText = stats.def;
+    
+    // Update Title Select
+    const tList = document.getElementById("title-list");
+    if (tList) {
+        tList.innerHTML = "";
+        TITLES.forEach(t => {
+            const unlocked = Object.keys(t.req).every(k => (state.achievements.kills[k] || 0) >= t.req[k]) || (t.id === 'collector' && state.achievements.totalKills >= t.req['total_loot']);
+            const div = document.createElement("div");
+            div.className = `title-item ${unlocked ? 'unlocked' : 'locked'}`;
+            div.innerHTML = `<div><strong>${t.name}</strong><br><small>${t.desc}</small></div>`;
+            if (unlocked) {
+                const btn = document.createElement("button"); btn.className = "btn-sm";
+                btn.innerText = state.currentTitleId === t.id ? "装備中" : "装備";
+                btn.onclick = () => { state.currentTitleId = t.id; updateAllUI(); saveGame(); };
+                div.appendChild(btn);
+            }
+            tList.appendChild(div);
+        });
+    }
 }
 
 function openSkillModal() {
@@ -368,18 +441,15 @@ function openSkillModal() {
 }
 function closeSkillModal() { const mod = document.getElementById("skill-modal"); if (mod) mod.classList.add("hidden"); }
 
-function updateHeaderUI() { const f=document.getElementById("current-floor"); if(f) f.innerText=state.floor; const g=document.getElementById("gold-amount"); if(g) g.innerText=state.gold; const k=document.getElementById("kamui-amount"); if(k) k.innerText=state.kamui; }
-function updateEquipmentUI() { for (let type of ['weapon', 'armor', 'accessory']) { const el = document.getElementById(`equip-${type}`); if(!el) continue; const s = el.querySelector('.slot-item'); if(!s) continue; const i = state.equipment[type]; if (i) { s.innerText = i.name; s.className = `slot-item ${i.rarity.colorClass}`; } else { s.innerText = "なし"; s.className = "slot-item"; } } }
-function updateInventoryUI() { const list = document.getElementById("inventory-list"); if(!list) return; list.innerHTML = ""; const count=document.getElementById("inv-count"); if(count) count.innerText = state.inventory.length; state.inventory.forEach((i, idx) => { const d = document.createElement("div"); d.className = "inv-item"; d.innerHTML = `<div class="item-name ${i.rarity.colorClass}">${i.name}</div>`; d.onclick = () => openItemModal(idx); list.appendChild(d); }); }
+function updateHeaderUI() { document.getElementById("current-floor").innerText = state.floor; document.getElementById("gold-amount").innerText = state.gold; document.getElementById("kamui-amount").innerText = state.kamui; }
+function updateEquipmentUI() { for (let type of ['weapon', 'armor', 'accessory']) { const el = document.getElementById(`equip-${type}`); if(!el) continue; const s = el.querySelector('.slot-item'); const i = state.equipment[type]; if (i) { s.innerText = `${i.name} (${ELEMENTS[i.element]?.name || ""})`; s.className = `slot-item ${i.rarity.colorClass}`; } else { s.innerText = "なし"; s.className = "slot-item"; } } }
+function updateInventoryUI() { const list = document.getElementById("inventory-list"); if(!list) return; list.innerHTML = ""; document.getElementById("inv-count").innerText = state.inventory.length; state.inventory.forEach((i, idx) => { const d = document.createElement("div"); d.className = "inv-item"; d.innerHTML = `<div class="item-name ${i.rarity.colorClass}">${i.name}</div>`; d.onclick = () => openItemModal(idx); list.appendChild(d); }); }
 function updatePartyUI() {
-    const count=document.getElementById("party-count"); if(count) count.innerText = state.party.length;
     const plist = document.getElementById("party-list"); if(!plist) return; plist.innerHTML = state.party.length === 0 ? "<p class='item-stats'>なし</p>" : "";
     state.party.forEach((m, i) => { const d = document.createElement("div"); d.className = "merc-item"; d.innerHTML = `<div>${m.name} Lv.${m.level}</div><button class="btn-sm" onclick="window.dismissMercenary(${i})">解雇</button>`; plist.appendChild(d); });
     const tlist = document.getElementById("tavern-list"); if(tlist) { tlist.innerHTML = availableMercs.length === 0 ? "<p class='item-stats'>なし</p>" : ""; availableMercs.forEach((m, i) => { const d = document.createElement("div"); d.className = "merc-item"; d.innerHTML = `<div>${m.name} (${m.price}G)</div><button class="btn-sm" onclick="window.hireMercenary(${i})">雇用</button>`; tlist.appendChild(d); }); }
-    const vis=document.getElementById("party-visual-list"); if(vis) vis.innerText = state.party.length > 0 ? `同行: ${state.party.map(m=>m.name).join(", ")}` : "";
 }
 function updateKamuiUI() {
-    const gain=document.getElementById("kamui-gain-amount"); if(gain) gain.innerText = Math.floor(state.floor / 5);
     const ulist = document.getElementById("kamui-upgrades"); if(!ulist) return; ulist.innerHTML = `
         <div class="upgrade-item"><div>経験値+20% (Lv.${state.kamuiUpgrades.expBonus})</div><button class="btn-sm" onclick="window.buyKamuiUpgrade('expBonus')">強化</button></div>
         <div class="upgrade-item"><div>G+20% (Lv.${state.kamuiUpgrades.goldBonus})</div><button class="btn-sm" onclick="window.buyKamuiUpgrade('goldBonus')">強化</button></div>
@@ -387,7 +457,46 @@ function updateKamuiUI() {
         <div class="upgrade-item"><div>ステ+10% (Lv.${state.kamuiUpgrades.statsBonus})</div><button class="btn-sm" onclick="window.buyKamuiUpgrade('statsBonus')">強化</button></div>
     `;
 }
-function logMessage(m, t = "normal") { const log = document.getElementById("battle-log"); if(!log) return; const d = document.createElement("div"); d.className = `log-entry ${t}`; d.innerText = m; log.appendChild(d); if (log.children.length > 30) log.removeChild(log.firstChild); log.scrollTop = log.scrollHeight; }
+
+function openItemModal(i) {
+    selectedItemIndex = i; const item = state.inventory[i];
+    const mod = document.getElementById("item-modal"); if (mod) mod.classList.remove("hidden");
+    const name = document.getElementById("modal-item-name"); if (name) { name.innerText = item.name; name.className = item.rarity.colorClass; }
+    
+    const current = state.equipment[item.type];
+    const st = document.getElementById("modal-item-stats");
+    let sT = `Lv.${item.lvl} / 属性: ${ELEMENTS[item.element]?.name || "無"}<br>`;
+    if (item.atk) sT += `ATK: ${item.atk} `; if (item.def) sT += `DEF: ${item.def} `; if (item.hp) sT += `HP: ${item.hp} `;
+    if (st) st.innerHTML = sT;
+
+    const compEl = document.getElementById("modal-item-compare");
+    if (compEl) {
+        if (!current) compEl.innerHTML = "<div class='compare-up'>新規装備</div>";
+        else {
+            let ds = []; ['atk', 'def', 'hp'].forEach(k => {
+                let d = (item[k]||0)-(current[k]||0); if(d!==0) ds.push(`${k.toUpperCase()}: <span class="${d>0?'compare-up':'compare-down'}">${d>0?'+':''}${d}</span>`);
+            });
+            compEl.innerHTML = ds.length>0 ? `比較:<br>${ds.join("<br>")}` : "性能差なし";
+        }
+    }
+    
+    // Refining
+    const refineBtn = document.getElementById("btn-refine-item");
+    if (refineBtn) {
+        const cost = Math.floor(100 * Math.pow(1.2, item.lvl));
+        refineBtn.innerText = `強化する (${cost}G)`;
+        refineBtn.onclick = () => {
+            if (state.gold >= cost) {
+                state.gold -= cost; item.lvl++;
+                if (item.atk) item.atk = Math.floor(item.atk * 1.1);
+                if (item.def) item.def = Math.floor(item.def * 1.1);
+                if (item.hp) item.hp = Math.floor(item.hp * 1.1);
+                item.name = item.name.replace(/\[Lv\.\d+\]/, `[Lv.${item.lvl}]`);
+                saveGame(); openItemModal(selectedItemIndex); updateAllUI();
+            } else alert("ゴールドが足りません！");
+        };
+    }
+}
 
 function hireMercenary(i) { if (state.party.length >= 3) return; const m = availableMercs[i]; if (state.gold >= m.price) { state.gold -= m.price; state.party.push({...m}); availableMercs.splice(i, 1); updateAllUI(); saveGame(); } }
 function dismissMercenary(i) { if (confirm("解雇しますか?")) { state.party.splice(i, 1); updatePartyUI(); saveGame(); } }
@@ -409,48 +518,6 @@ function useSkill(skill) {
     if (skill.recoil) { let r = Math.floor(stats.maxHp * skill.recoil); updateHeroHP(-r); logMessage(`反動 ${r}`, "damage"); }
     if (skill.gold) { let g = 10 + state.floor; state.gold += g; logMessage(`${g} G入手！`, "loot"); updateHeaderUI(); }
     skillCooldowns[skill.id] = skill.cd; closeSkillModal();
-}
-function openItemModal(i) {
-    selectedItemIndex = i;
-    const item = state.inventory[i];
-    const mod = document.getElementById("item-modal");
-    if (mod) mod.classList.remove("hidden");
-    
-    const name = document.getElementById("modal-item-name");
-    if (name) {
-        name.innerText = item.name;
-        name.className = item.rarity.colorClass;
-    }
-    
-    const st = document.getElementById("modal-item-stats");
-    let statText = "";
-    if (item.atk) statText += `ATK: ${item.atk} `;
-    if (item.def) statText += `DEF: ${item.def} `;
-    if (item.hp) statText += `HP: ${item.hp} `;
-    if (st) st.innerHTML = `${statText}<br><small>売却額: ${item.value} G</small>`;
-
-    // Comparison logic
-    const current = state.equipment[item.type];
-    const compEl = document.getElementById("modal-item-compare");
-    if (compEl) {
-        if (!current) {
-            compEl.innerHTML = `<div class='compare-up'>新規装備: ステータスが上昇します</div>`;
-        } else {
-            let diffs = [];
-            const keys = ['atk', 'def', 'hp'];
-            keys.forEach(k => {
-                const oldVal = current[k] || 0;
-                const newVal = item[k] || 0;
-                const diff = newVal - oldVal;
-                if (diff !== 0) {
-                    const color = diff > 0 ? "compare-up" : "compare-down";
-                    const sign = diff > 0 ? "+" : "";
-                    diffs.push(`${k.toUpperCase()}: <span class="${color}">${sign}${diff}</span>`);
-                }
-            });
-            compEl.innerHTML = diffs.length > 0 ? `現在の装備と比較:<br>${diffs.join("<br>")}` : "性能に変化はありません";
-        }
-    }
 }
 
 // Events

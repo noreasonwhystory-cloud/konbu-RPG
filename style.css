@@ -320,6 +320,10 @@ body {
 .compare-down { color: #f87171; font-weight: bold; }
 .modal-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
+.title-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 0.5rem; }
+.title-item.locked { opacity: 0.5; filter: grayscale(1); }
+.title-item.unlocked { border-left: 4px solid #f59e0b; }
+
 .skill-list-container {
     display: flex;
     flex-direction: column;

@@ -26,7 +26,8 @@
             <section id="left-panel" class="panel">
                 <div class="tabs">
                     <button class="tab-btn active" data-target="tab-status">主人公</button>
-                    <button class="tab-btn" data-target="tab-party">傭兵</button>
+                    <button class="tab-btn" data-target="tab-party">仲間</button>
+                    <button class="tab-btn" data-target="tab-titles">称号</button>
                     <button class="tab-btn" data-target="tab-kamui">神威</button>
                 </div>
 
@@ -75,6 +76,17 @@
                     <h2 class="mt-1">酒場 (雇用)</h2>
                     <div id="tavern-list">
                         <!-- Available mercenaries -->
+                    </div>
+                </div>
+
+                <!-- Titles Tab -->
+                <div id="tab-titles" class="tab-content">
+                    <div class="status-card">
+                        <h3>称号獲得・装備</h3>
+                        <p class="item-stats">条件を満たすと称号を装備できます。</p>
+                        <div id="title-list" class="merc-list">
+                            <!-- Titles will be injected here -->
+                        </div>
                     </div>
                 </div>
 
@@ -172,6 +184,7 @@
                 <!-- Comparison info here -->
             </div>
             <div class="modal-actions">
+                <button id="btn-refine-item" class="btn btn-gold">強化する</button>
                 <button id="btn-equip-item" class="btn">装備する</button>
                 <button id="btn-sell-item" class="btn btn-secondary">売却する</button>
                 <button id="btn-close-modal" class="btn btn-cancel">閉じる</button>
