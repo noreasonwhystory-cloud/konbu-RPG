@@ -1,6 +1,6 @@
 // --- Game State & Data ---
-const GAME_VERSION = "0.7";
-const SAVE_KEY = "konbuRpgSaveData_v7";
+const GAME_VERSION = "0.8";
+const SAVE_KEY = "konbuRpgSaveData_v8";
 
 const getInitialState = () => ({
     floor: 1, gold: 0, kamui: 0,
@@ -24,6 +24,7 @@ let currentEnemy = null;
 let selectedItemIndex = null;
 let availableMercs = [];
 let canProceed = false;
+let isActing = false; // Prevent spamming
 let skillCooldowns = {};
 
 const CLASSES = {
@@ -119,7 +120,11 @@ function mercsAttack() {
 }
 
 function executeAttack(multiplier = 1, isSkill = false) {
-    if (!currentEnemy || canProceed) return;
+    if (!currentEnemy || canProceed || isActing) return;
+    
+    isActing = true;
+    updateBattleControls();
+
     const stats = getHeroTotalStats();
     let dmg = Math.max(1, Math.floor((stats.atk - currentEnemy.def) * multiplier) + randomInt(-2, 2));
     currentEnemy.hp -= dmg;
@@ -133,17 +138,23 @@ function executeAttack(multiplier = 1, isSkill = false) {
 
     if (currentEnemy.hp <= 0) {
         onEnemyDefeated();
+        isActing = false;
+        updateBattleControls();
     } else {
-        // Mercs attack right after hero
         mercsAttack();
-        if (currentEnemy.hp > 0 && !state.isAutoMode) {
+        if (currentEnemy.hp > 0) {
+            // Delay enemy turn to show sequence
             setTimeout(enemyTurn, 600);
+        } else {
+            isActing = false;
+            updateBattleControls();
         }
     }
 }
 
 function useSkill(skill) {
-    if ((skillCooldowns[skill.id] || 0) > 0 || !currentEnemy || canProceed) return;
+    if ((skillCooldowns[skill.id] || 0) > 0 || !currentEnemy || canProceed || isActing) return;
+    
     executeAttack(skill.mult, true);
     const stats = getHeroTotalStats();
     if (skill.heal) { let h = Math.floor(stats.maxHp * skill.heal); updateHeroHP(h); logMessage(`HPを ${h} 回復！`, "heal"); }
@@ -151,14 +162,19 @@ function useSkill(skill) {
     if (skill.gold) { let g = 10 + state.floor; state.gold += g; logMessage(`${g} Gを入手！`, "loot"); updateHeaderUI(); }
     skillCooldowns[skill.id] = skill.cd;
     closeSkillModal();
-    updateBattleControls();
 }
 
 function enemyTurn() {
-    if (!currentEnemy || currentEnemy.hp <= 0 || canProceed) return;
+    if (!currentEnemy || currentEnemy.hp <= 0 || canProceed) {
+        isActing = false;
+        updateBattleControls();
+        return;
+    }
+    
     const stats = getHeroTotalStats();
     let d = Math.max(1, currentEnemy.atk - stats.def + randomInt(-1, 1));
     updateHeroHP(-d);
+    
     const enemyEl = document.querySelector(".enemy");
     enemyEl.classList.remove("attack-anim-enemy");
     void enemyEl.offsetWidth; enemyEl.classList.add("attack-anim-enemy");
@@ -167,8 +183,11 @@ function enemyTurn() {
     if (state.hero.hp <= 0) {
         logMessage("敗北... 1階へ戻ります。", "danger");
         state.floor = 1; state.hero.hp = getHeroTotalStats().maxHp;
-        currentEnemy = null; canProceed = false;
+        currentEnemy = null; canProceed = false; isActing = false;
         updateAllUI(); saveGame(); startBattle();
+    } else {
+        isActing = false;
+        updateBattleControls();
     }
 }
 
@@ -176,8 +195,8 @@ function onEnemyDefeated() {
     logMessage(`${currentEnemy.name} を討伐！`, "system");
     let expMulti = 1 + (state.kamuiUpgrades.expBonus * 0.2);
     let goldMulti = 1 + (state.kamuiUpgrades.goldBonus * 0.2);
-    let expG = Math.floor(10 * Math.pow(1.1, state.floor) * expMulti);
-    let goldG = Math.floor(5 * Math.pow(1.1, state.floor) * goldMulti);
+    let expG = Math.floor(10 * Math.pow(1.05, state.floor) * expMulti); // Reduced multiplier for 1000 floors
+    let goldG = Math.floor(5 * Math.pow(1.05, state.floor) * goldMulti);
     if (currentEnemy.isBoss) { expG *= 3; goldG *= 3; }
     addExp(expG); state.gold += goldG;
     if (Math.random() < (0.3 * (1 + state.kamuiUpgrades.dropRateBonus * 0.25)) || currentEnemy.isBoss) generateLoot(state.floor);
@@ -193,11 +212,11 @@ function addExp(amount) {
         logMessage(`レベルアップ！ Lv.${state.hero.level}`, "system");
     }
     const cid = state.hero.classId;
-    let nextCE = 20 * Math.pow(1.5, state.hero.classLevels[cid] - 1);
+    let nextCE = 20 * Math.pow(1.3, state.hero.classLevels[cid] - 1);
     while (state.hero.classExp[cid] >= nextCE) {
         state.hero.classExp[cid] -= nextCE; state.hero.classLevels[cid]++;
         logMessage(`${CLASSES[cid].name}LvUP！ Lv.${state.hero.classLevels[cid]}`, "system");
-        nextCE = 20 * Math.pow(1.5, state.hero.classLevels[cid] - 1);
+        nextCE = 20 * Math.pow(1.3, state.hero.classLevels[cid] - 1);
     }
     updateStatusUI();
 }
@@ -210,7 +229,7 @@ function startBattle() {
         currentEnemy = generateEnemy(state.floor);
         document.getElementById("enemy-name").innerText = currentEnemy.name;
         document.getElementById("enemy-sprite").src = "assets/" + currentEnemy.image;
-        updateEnemyHP(); logMessage(`${currentEnemy.name} が現れた！`, "system");
+        updateEnemyHP(); logMessage(`${currentEnemy.name} (Lv.${state.floor}) が現れた！`, "system");
     }
     if (!battleInterval) battleInterval = setInterval(battleTick, 1000);
 }
@@ -219,12 +238,11 @@ function battleTick() {
     for (let id in skillCooldowns) { if (skillCooldowns[id] > 0) skillCooldowns[id]--; }
     if (!currentEnemy || canProceed) { updateBattleControls(); return; }
 
-    if (state.isAutoMode) {
+    if (state.isAutoMode && !isActing) {
         executeAttack();
         const cid = state.hero.classId;
         const usable = CLASSES[cid].skills.find(s => s.unlockLvl <= state.hero.classLevels[cid] && (skillCooldowns[s.id] || 0) === 0);
         if (usable) useSkill(usable);
-        if (currentEnemy && currentEnemy.hp > 0) setTimeout(enemyTurn, 500);
     } else {
         updateBattleControls();
     }
@@ -235,9 +253,10 @@ function battleTick() {
 function generateEnemy(floor) {
     const t = ENEMY_TYPES[randomInt(0, ENEMY_TYPES.length - 1)];
     const boss = floor % 10 === 0;
-    const m = Math.pow(1.1, floor - 1) * (boss ? 4 : 1);
-    const hp = Math.floor(20 * t.hpMult * m);
-    return { name: boss ? `[ボス] ${t.name}` : t.name, maxHp: hp, hp, atk: Math.floor(5 * t.atkMult * m), def: Math.floor(2 * t.defMult * m), isBoss: boss, image: t.image };
+    // Smoother scaling for 1000 floors: 1.03x per floor
+    const m = Math.pow(1.03, floor - 1) * (boss ? 5 : 1);
+    const hp = Math.floor(30 * t.hpMult * m);
+    return { name: boss ? `[BOSS] ${t.name}` : t.name, maxHp: hp, hp, atk: Math.floor(8 * t.atkMult * m), def: Math.floor(3 * t.defMult * m), isBoss: boss, image: t.image };
 }
 
 function generateLoot(floor) {
@@ -245,9 +264,9 @@ function generateLoot(floor) {
     const type = ['weapon', 'armor', 'accessory'][randomInt(0, 2)];
     let rar = getRandomRarity();
     const fl = Math.max(1, floor + randomInt(-2, 2));
-    let stat = Math.floor(10 * Math.pow(1.05, fl) * rar.statMult);
+    let stat = Math.floor(10 * Math.pow(1.03, fl) * rar.statMult);
     let i = { id: Date.now() + randomInt(0,999), type, rarity: rar, lvl: fl };
-    const p = ["粗悪な", "普通の", "鋭い", "重い", "魔法の", "名工の", "伝説の"][randomInt(0, 6)];
+    const p = ["粗悪な", "普通の", "鋭い", "重い", "魔法の", "名工の", "伝説の", "神話の", "虚無の"][randomInt(0, 8)];
     if (type === 'weapon') { i.name = p + "の剣"; i.atk = stat; }
     else if (type === 'armor') { i.name = p + "の鎧"; i.def = stat; }
     else { i.name = p + "の指輪"; if (Math.random() > 0.5) { i.atk = Math.floor(stat*0.4); i.def = Math.floor(stat*0.4); } else { i.hp = stat * 5; } }
@@ -261,7 +280,7 @@ function refreshTavern() {
     for (let i=0; i<3; i++) {
         const n = ["アーサー", "ランスロット", "ジャンヌ", "ジークフリート", "ロビン", "マーリン"][randomInt(0, 5)];
         const l = Math.max(1, fl + randomInt(-2, 2));
-        availableMercs.push({ id: Date.now()+i, name: n, level: l, atk: 5+(l*3), price: Math.floor(100*Math.pow(1.5, l)) });
+        availableMercs.push({ id: Date.now()+i, name: n, level: l, atk: Math.floor(10 * Math.pow(1.03, l)), price: Math.floor(100*Math.pow(1.5, l)) });
     }
 }
 
@@ -282,10 +301,26 @@ function updateBattleControls() {
     const autoBtn = document.getElementById("btn-toggle-auto");
     const manualCtrl = document.getElementById("manual-controls");
     const proceedCtrl = document.getElementById("proceed-controls");
+    const atkBtn = document.getElementById("btn-attack");
+    const skillBtn = document.getElementById("btn-open-skills");
+
     autoBtn.innerText = state.isAutoMode ? "AUTO: ON" : "AUTO: OFF";
     state.isAutoMode ? autoBtn.classList.add("active") : autoBtn.classList.remove("active");
-    if (canProceed) { manualCtrl.classList.add("hidden"); proceedCtrl.classList.remove("hidden"); }
-    else { proceedCtrl.classList.add("hidden"); if (!state.isAutoMode) manualCtrl.classList.remove("hidden"); else manualCtrl.classList.add("hidden"); }
+
+    if (canProceed) {
+        manualCtrl.classList.add("hidden");
+        proceedCtrl.classList.remove("hidden");
+    } else {
+        proceedCtrl.classList.add("hidden");
+        if (!state.isAutoMode) {
+            manualCtrl.classList.remove("hidden");
+            // Disable buttons during action
+            atkBtn.disabled = isActing;
+            skillBtn.disabled = isActing;
+        } else {
+            manualCtrl.classList.add("hidden");
+        }
+    }
 }
 
 function updateStatusUI() {
@@ -308,7 +343,7 @@ function openSkillModal() {
         const btn = document.createElement("button"); btn.className = "skill-btn";
         const locked = s.unlockLvl > state.hero.classLevels[cid];
         const cd = skillCooldowns[s.id] || 0;
-        btn.disabled = locked || cd > 0;
+        btn.disabled = locked || cd > 0 || isActing;
         btn.innerHTML = `<strong>${s.name}</strong> ${locked ? `(Lv.${s.unlockLvl}解放)` : (cd > 0 ? `(${cd}s)` : "")}<span class="skill-info">${s.desc}</span>`;
         if (!btn.disabled) btn.onclick = () => useSkill(s);
         list.appendChild(btn);
@@ -348,7 +383,7 @@ function doPrestige() {
     if (confirm(`${g} 神威を得て転生しますか？`)) {
         state.kamui += g; state.floor = 1; state.hero.level = 1; state.hero.exp = 0; state.hero.nextExp = 10;
         state.hero.baseAtk = 10; state.hero.baseDef = 5; state.hero.maxHp = 100; state.party = [];
-        state.hero.hp = getHeroTotalStats().maxHp; currentEnemy = null; canProceed = false;
+        state.hero.hp = getHeroTotalStats().maxHp; currentEnemy = null; canProceed = false; isActing = false;
         updateAllUI(); saveGame(); startBattle();
     }
 }
@@ -360,14 +395,15 @@ document.getElementById("btn-toggle-auto").onclick = () => { state.isAutoMode = 
 document.getElementById("btn-attack").onclick = () => executeAttack();
 document.getElementById("btn-open-skills").onclick = () => openSkillModal();
 document.getElementById("btn-close-skill-modal").onclick = () => closeSkillModal();
-document.getElementById("btn-next-floor").onclick = () => { state.floor++; currentEnemy = null; canProceed = false; updateHeroHP(Math.floor(getHeroTotalStats().maxHp * 0.1)); if (state.floor % 5 === 0) refreshTavern(); updateAllUI(); startBattle(); };
-document.getElementById("btn-retreat").onclick = () => { state.floor = 1; currentEnemy = null; canProceed = false; state.hero.hp = getHeroTotalStats().maxHp; updateAllUI(); saveGame(); startBattle(); };
+document.getElementById("btn-next-floor").onclick = () => { state.floor++; currentEnemy = null; canProceed = false; isActing = false; updateHeroHP(Math.floor(getHeroTotalStats().maxHp * 0.1)); if (state.floor % 5 === 0) refreshTavern(); updateAllUI(); startBattle(); };
+document.getElementById("btn-retreat").onclick = () => { state.floor = 1; currentEnemy = null; canProceed = false; isActing = false; state.hero.hp = getHeroTotalStats().maxHp; updateAllUI(); saveGame(); startBattle(); };
 document.getElementById("btn-sell-all").onclick = () => { let g = 0; let n = []; state.inventory.forEach(i => { if (i.rarity.name === 'コモン' || i.rarity.name === 'アンコモン') g += i.value; else n.push(i); }); if (g > 0) { state.inventory = n; state.gold += g; updateAllUI(); saveGame(); } };
 document.getElementById("btn-close-modal").onclick = () => document.getElementById("item-modal").classList.add("hidden");
 document.getElementById("btn-equip-item").onclick = () => { const i = state.inventory[selectedItemIndex]; if (state.equipment[i.type]) state.inventory.push(state.equipment[i.type]); state.equipment[i.type] = i; state.inventory.splice(selectedItemIndex, 1); document.getElementById("item-modal").classList.add("hidden"); updateAllUI(); saveGame(); };
 document.getElementById("btn-sell-item").onclick = () => { state.gold += state.inventory[selectedItemIndex].value; state.inventory.splice(selectedItemIndex, 1); document.getElementById("item-modal").classList.add("hidden"); updateAllUI(); saveGame(); };
 document.getElementById("hero-class-select").onchange = (e) => { state.hero.classId = e.target.value; updateStatusUI(); saveGame(); };
 document.getElementById("btn-prestige").onclick = doPrestige;
+document.getElementById("btn-close-skill-modal").onclick = closeSkillModal;
 
 window.hireMercenary = hireMercenary; window.dismissMercenary = dismissMercenary; window.buyKamuiUpgrade = buyKamuiUpgrade;
 loadGame();
