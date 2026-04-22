@@ -125,7 +125,7 @@
                     </div>
                     <div id="manual-controls" class="control-row hidden">
                         <button id="btn-attack" class="btn">攻撃</button>
-                        <button id="btn-skill" class="btn btn-skill">スキル</button>
+                        <button id="btn-open-skills" class="btn btn-skill">特技</button>
                     </div>
                     <div id="proceed-controls" class="control-row hidden">
                         <button id="btn-next-floor" class="btn btn-success">次の階層へ進む</button>
@@ -146,6 +146,19 @@
                     <button id="btn-sell-all" class="btn btn-secondary w-100">低レアを一括売却</button>
                 </div>
             </section>
+        </div>
+    </div>
+
+    <!-- Specialty Selection Modal -->
+    <div id="skill-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>特技一覧</h3>
+            <div id="skill-list" class="skill-list-container">
+                <!-- Skills populated by JS -->
+            </div>
+            <div class="modal-actions mt-1">
+                <button id="btn-close-skill-modal" class="btn btn-cancel">閉じる</button>
+            </div>
         </div>
     </div>
 
