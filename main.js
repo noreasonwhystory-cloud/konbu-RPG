@@ -521,10 +521,23 @@ function refreshTavern() {
 // --- UI ---
 
 function updateAllUI() {
+    updateClassSelectorUI();
     updateHeaderUI(); updateStatusUI(); updateEquipmentUI(); updateInventoryUI(); updatePartyUI(); updateKamuiUI(); updateBattleControls(); updateEnemyHP();
     // Update Hero Sprite
     const heroSprite = document.getElementById("hero-sprite");
     if (heroSprite) heroSprite.src = "assets/" + (CLASSES[state.hero.classId]?.image || "hero.png");
+}
+
+function updateClassSelectorUI() {
+    const sel = document.getElementById("hero-class-select");
+    if (!sel || sel.children.length > 0) return; // Only populate once
+    for (let cid in CLASSES) {
+        const opt = document.createElement("option");
+        opt.value = cid;
+        opt.innerText = CLASSES[cid].name;
+        opt.selected = (state.hero.classId === cid);
+        sel.appendChild(opt);
+    }
 }
 
 function updateBattleControls() {
