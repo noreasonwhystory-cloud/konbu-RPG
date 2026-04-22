@@ -343,28 +343,49 @@ function generateEnemy(floor) {
 
 function generateLoot(floor) {
     if (state.inventory.length >= state.maxInventory) return;
+    
+    const itemPool = {
+        weapon: ["剣", "斧", "槍", "弓", "杖", "短剣", "大剣", "メイス"],
+        armor: ["鎧", "ローブ", "プレートメイル", "レザーアーマー", "盾", "兜"],
+        accessory: ["指輪", "アミュレット", "ベルト", "耳飾り", "腕輪"]
+    };
+
     const type = ['weapon', 'armor', 'accessory'][randomInt(0, 2)];
+    const baseName = itemPool[type][randomInt(0, itemPool[type].length - 1)];
     let rar = getRandomRarity();
     const fl = Math.max(1, floor + randomInt(-2, 2));
+    
+    // Quality Prefixes based on Rarity
+    const qualityMap = {
+      'コモン': ["ボロボロの", "普通の", "手入れされた", "ありふれた"],
+      'アンコモン': ["上質な", "鋭い", "頑丈な", "磨かれた"],
+      'レア': ["名工の", "魔力が宿る", "輝く", "歴戦の"],
+      'エピック': ["英雄の", "幻想的な", "龍鱗の", "聖なる"],
+      'レジェンダリー': ["至高の", "神話の", "虚無の", "天上の"]
+    };
+    const prefixes = qualityMap[rar.name];
+    const p = prefixes[randomInt(0, prefixes.length - 1)];
+
     let baseVal = 10 * Math.pow(1.03, fl) * rar.statMult;
     const varMult = 0.9 + (Math.random() * 0.2);
     let finalVal = Math.floor(baseVal * varMult);
     
-    const prefixes = ["粗悪な", "普通の", "鋭い", "重い", "魔法の", "名工の", "伝説の", "神話の", "虚無の"];
-    const p = prefixes[randomInt(0, prefixes.length - 1)];
-    const names = { weapon: "の剣", armor: "の鎧", accessory: "の指輪" };
-    
-    // Random Element
     const elemKeys = Object.keys(ELEMENTS);
     const elem = elemKeys[randomInt(0, elemKeys.length - 1)];
 
-    let i = { id: Date.now() + randomInt(0,999), type, rarity: rar, lvl: fl, prefix: p, element: elem, name: `[Lv.${fl}] ${p}${names[type]}` };
+    let i = { id: Date.now() + randomInt(0,999), type, rarity: rar, lvl: fl, prefix: p, element: elem, name: `[Lv.${fl}] ${p}${baseName}` };
+    
     if (type === 'weapon') i.atk = finalVal;
     else if (type === 'armor') i.def = finalVal;
-    else { if (Math.random() > 0.5) { i.atk = Math.floor(finalVal*0.4); i.def = Math.floor(finalVal*0.4); } else i.hp = finalVal*5; }
+    else { 
+        if (Math.random() > 0.5) { i.atk = Math.floor(finalVal*0.4); i.def = Math.floor(finalVal*0.4); } 
+        else i.hp = finalVal*5; 
+    }
     
     i.value = Math.floor(finalVal * rar.statMult * 0.5);
-    state.inventory.push(i); logMessage(`${i.name} 獲得！`, "loot"); updateInventoryUI();
+    state.inventory.push(i); 
+    logMessage(`${i.name} 獲得！`, "loot"); 
+    updateInventoryUI();
 }
 
 function getRandomRarity() {
