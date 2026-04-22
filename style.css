@@ -209,23 +209,30 @@ body {
 #battle-panel { flex: 1; display: flex; flex-direction: column; }
 .battle-scene {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 2rem; background: rgba(0,0,0,0.3); border-radius: 12px; margin-bottom: 1.5rem;
+    padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 12px; margin-bottom: 1rem;
+    min-height: 250px;
 }
 .combatant-group { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
 .combatant { text-align: center; width: 100%; max-width: 200px; }
 .sprite-container {
-    width: 120px;
-    height: 120px;
-    margin: 0.5rem auto;
+    width: 150px;
+    height: 150px;
+    margin: 0.25rem auto;
     display: flex;
     justify-content: center;
     align-items: center;
+    background: rgba(255,255,255,0.03);
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.1);
 }
 .sprite-container img {
-    max-width: 100%;
-    max-height: 100%;
+    max-width: 90%;
+    max-height: 90%;
     object-fit: contain;
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+    filter: drop-shadow(0 0 10px rgba(255,255,255,0.2));
+}
+#enemy-sprite {
+    mix-blend-mode: screen; /* Removes black background from v2 images */
 }
 .party-visual-list { width: 100%; font-size: 0.8rem; color: var(--text-muted); text-align: center;}
 
