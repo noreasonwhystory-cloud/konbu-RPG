@@ -387,7 +387,48 @@ function useSkill(skill) {
     if (skill.gold) { let g = 10 + state.floor; state.gold += g; logMessage(`${g} G入手！`, "loot"); updateHeaderUI(); }
     skillCooldowns[skill.id] = skill.cd; closeSkillModal();
 }
-function openItemModal(i) { selectedItemIndex = i; const item = state.inventory[i]; const mod=document.getElementById("item-modal"); if(mod) mod.classList.remove("hidden"); const name=document.getElementById("modal-item-name"); if(name) { name.innerText = item.name; name.className = item.rarity.colorClass; } const st=document.getElementById("modal-item-stats"); if(st) st.innerHTML = `売却: ${item.value} G`; }
+function openItemModal(i) {
+    selectedItemIndex = i;
+    const item = state.inventory[i];
+    const mod = document.getElementById("item-modal");
+    if (mod) mod.classList.remove("hidden");
+    
+    const name = document.getElementById("modal-item-name");
+    if (name) {
+        name.innerText = item.name;
+        name.className = item.rarity.colorClass;
+    }
+    
+    const st = document.getElementById("modal-item-stats");
+    let statText = "";
+    if (item.atk) statText += `ATK: ${item.atk} `;
+    if (item.def) statText += `DEF: ${item.def} `;
+    if (item.hp) statText += `HP: ${item.hp} `;
+    if (st) st.innerHTML = `${statText}<br><small>売却額: ${item.value} G</small>`;
+
+    // Comparison logic
+    const current = state.equipment[item.type];
+    const compEl = document.getElementById("modal-item-compare");
+    if (compEl) {
+        if (!current) {
+            compEl.innerHTML = `<div class='compare-up'>新規装備: ステータスが上昇します</div>`;
+        } else {
+            let diffs = [];
+            const keys = ['atk', 'def', 'hp'];
+            keys.forEach(k => {
+                const oldVal = current[k] || 0;
+                const newVal = item[k] || 0;
+                const diff = newVal - oldVal;
+                if (diff !== 0) {
+                    const color = diff > 0 ? "compare-up" : "compare-down";
+                    const sign = diff > 0 ? "+" : "";
+                    diffs.push(`${k.toUpperCase()}: <span class="${color}">${sign}${diff}</span>`);
+                }
+            });
+            compEl.innerHTML = diffs.length > 0 ? `現在の装備と比較:<br>${diffs.join("<br>")}` : "性能に変化はありません";
+        }
+    }
+}
 
 // Events
 document.addEventListener("DOMContentLoaded", () => {
