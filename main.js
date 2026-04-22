@@ -208,8 +208,8 @@ function onEnemyDefeated() {
     if (currentEnemy.isBoss) { expG *= 3; goldG *= 3; }
     addExp(expG); state.gold += goldG;
     
-    // Increased drop rate for better feedback
-    let dropChance = 0.5 * (1 + state.kamuiUpgrades.dropRateBonus * 0.25);
+    // Reverted to 30% as requested
+    let dropChance = 0.3 * (1 + state.kamuiUpgrades.dropRateBonus * 0.25);
     if (Math.random() < dropChance || currentEnemy.isBoss) {
         generateLoot(state.floor);
     }
