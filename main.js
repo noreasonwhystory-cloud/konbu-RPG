@@ -1,6 +1,6 @@
 // --- Game State & Data ---
-const GAME_VERSION = "0.5";
-const SAVE_KEY = "konbuRpgSaveData_v5";
+const GAME_VERSION = "0.6";
+const SAVE_KEY = "konbuRpgSaveData_v6";
 
 const getInitialState = () => ({
     floor: 1,
@@ -23,7 +23,7 @@ const getInitialState = () => ({
     maxInventory: 50,
     party: [],
     kamuiUpgrades: { expBonus: 0, goldBonus: 0, dropRateBonus: 0, statsBonus: 0 },
-    isAutoMode: false // Start with OFF as requested
+    isAutoMode: false 
 });
 
 let state = getInitialState();
@@ -39,41 +39,11 @@ let skillCooldowns = {};
 // --- Data Definitions ---
 
 const CLASSES = {
-    novice: {
-        name: "見習い", hpPerLvl: 5, atkPerLvl: 1, defPerLvl: 0.5,
-        skills: [
-            { id: 'bash', name: 'バッシュ', unlockLvl: 1, mult: 1.5, cd: 3, desc: '1.5倍ダメージ' },
-            { id: 'focus', name: '精神集中', unlockLvl: 5, mult: 2.2, cd: 5, desc: '2.2倍ダメージ' }
-        ]
-    },
-    warrior: {
-        name: "戦士", hpPerLvl: 8, atkPerLvl: 2, defPerLvl: 1,
-        skills: [
-            { id: 'power', name: '強撃', unlockLvl: 1, mult: 2.5, cd: 4, desc: '2.5倍ダメージ' },
-            { id: 'whirlwind', name: '旋風斬', unlockLvl: 10, mult: 4.0, cd: 8, desc: '4.0倍ダメージ' }
-        ]
-    },
-    knight: {
-        name: "騎士", hpPerLvl: 12, atkPerLvl: 1, defPerLvl: 2,
-        skills: [
-            { id: 'holy', name: 'ホーリーライト', unlockLvl: 1, mult: 1.2, heal: 0.1, cd: 5, desc: '攻撃＋HP10%回復' },
-            { id: 'shield', name: 'シールドバッシュ', unlockLvl: 5, mult: 1.8, stun: true, cd: 6, desc: '1.8倍ダメ＋敵の次ターンを遅延' }
-        ]
-    },
-    berserker: {
-        name: "狂戦士", hpPerLvl: 6, atkPerLvl: 3, defPerLvl: 0.2,
-        skills: [
-            { id: 'blood', name: 'ブラッドラスト', unlockLvl: 1, mult: 4.0, recoil: 0.1, cd: 5, desc: '4倍ダメ（反動10%）' },
-            { id: 'exec', name: '処刑', unlockLvl: 10, mult: 6.0, recoil: 0.2, cd: 10, desc: '6倍ダメ（反動20%）' }
-        ]
-    },
-    thief: {
-        name: "盗賊", hpPerLvl: 5, atkPerLvl: 1.5, defPerLvl: 0.5,
-        skills: [
-            { id: 'steal', name: 'ぶんどる', unlockLvl: 1, mult: 1.2, gold: true, cd: 4, desc: '攻撃＋ゴールド' },
-            { id: 'triple', name: '三連斬', unlockLvl: 5, mult: 3.5, cd: 7, desc: '3.5倍ダメージ' }
-        ]
-    }
+    novice: { name: "見習い", hpPerLvl: 5, atkPerLvl: 1, defPerLvl: 0.5, skills: [ { id: 'bash', name: 'バッシュ', unlockLvl: 1, mult: 1.5, cd: 3, desc: '1.5倍ダメージ' }, { id: 'focus', name: '精神集中', unlockLvl: 5, mult: 2.2, cd: 5, desc: '2.2倍ダメージ' } ] },
+    warrior: { name: "戦士", hpPerLvl: 8, atkPerLvl: 2, defPerLvl: 1, skills: [ { id: 'power', name: '強撃', unlockLvl: 1, mult: 2.5, cd: 4, desc: '2.5倍ダメージ' }, { id: 'whirlwind', name: '旋風斬', unlockLvl: 10, mult: 4.0, cd: 8, desc: '4.0倍ダメージ' } ] },
+    knight: { name: "騎士", hpPerLvl: 12, atkPerLvl: 1, defPerLvl: 2, skills: [ { id: 'holy', name: 'ホーリーライト', unlockLvl: 1, mult: 1.2, heal: 0.1, cd: 5, desc: '攻撃＋HP10%回復' }, { id: 'shield', name: 'シールドバッシュ', unlockLvl: 5, mult: 1.8, stun: true, cd: 6, desc: '1.8倍ダメ＋敵遅延' } ] },
+    berserker: { name: "狂戦士", hpPerLvl: 6, atkPerLvl: 3, defPerLvl: 0.2, skills: [ { id: 'blood', name: 'ブラッドラスト', unlockLvl: 1, mult: 4.0, recoil: 0.1, cd: 5, desc: '4倍ダメ（反動10%）' }, { id: 'exec', name: '処刑', unlockLvl: 10, mult: 6.0, recoil: 0.2, cd: 10, desc: '6倍ダメ（反動20%）' } ] },
+    thief: { name: "盗賊", hpPerLvl: 5, atkPerLvl: 1.5, defPerLvl: 0.5, skills: [ { id: 'steal', name: 'ぶんどる', unlockLvl: 1, mult: 1.2, gold: true, cd: 4, desc: '攻撃＋ゴールド' }, { id: 'triple', name: '三連斬', unlockLvl: 5, mult: 3.5, cd: 7, desc: '3.5倍ダメージ' } ] }
 };
 
 const ENEMY_TYPES = [
@@ -155,7 +125,10 @@ function updateHeroHP(amount) {
 
 function updateEnemyHP() {
     if (!currentEnemy) return;
-    document.getElementById("enemy-hp-bar").style.width = `${(currentEnemy.hp / currentEnemy.maxHp) * 100}%`;
+    const percent = Math.max(0, (currentEnemy.hp / currentEnemy.maxHp) * 100);
+    document.getElementById("enemy-hp-bar").style.width = `${percent}%`;
+    document.getElementById("enemy-hp").innerText = Math.floor(Math.max(0, currentEnemy.hp));
+    document.getElementById("enemy-max-hp").innerText = currentEnemy.maxHp;
 }
 
 // --- Actions ---
@@ -166,6 +139,7 @@ function executeAttack(multiplier = 1, isSkill = false) {
     let dmg = Math.max(1, Math.floor((stats.atk - currentEnemy.def) * multiplier) + randomInt(-2, 2));
     currentEnemy.hp -= dmg;
     
+    // UI Feedback
     const heroEl = document.querySelector(".hero");
     heroEl.classList.remove("attack-anim-hero");
     void heroEl.offsetWidth;
@@ -177,7 +151,7 @@ function executeAttack(multiplier = 1, isSkill = false) {
     if (currentEnemy.hp <= 0) {
         onEnemyDefeated();
     } else if (!state.isAutoMode) {
-        // Manual mode: Enemy reacts immediately
+        // Manual mode counterattack
         setTimeout(enemyTurn, 600);
     }
 }
@@ -191,7 +165,7 @@ function useSkill(skill) {
     if (skill.heal) {
         const h = Math.floor(stats.maxHp * skill.heal);
         updateHeroHP(h);
-        logMessage(`HPを ${h} 回復した！`, "heal");
+        logMessage(`HPを ${h} 回復！`, "heal");
     }
     if (skill.recoil) {
         const r = Math.floor(stats.maxHp * skill.recoil);
@@ -224,7 +198,7 @@ function enemyTurn() {
     logMessage(`${currentEnemy.name}の攻撃！ ${d} ダメージ！`, "damage");
 
     if (state.hero.hp <= 0) {
-        logMessage("敗北... 1階に戻ります。", "danger");
+        logMessage("全滅した... 1階に戻ります。", "danger");
         state.floor = 1; state.hero.hp = getHeroTotalStats().maxHp;
         currentEnemy = null; canProceed = false;
         updateAllUI(); saveGame(); startBattle();
@@ -232,7 +206,7 @@ function enemyTurn() {
 }
 
 function onEnemyDefeated() {
-    logMessage(`${currentEnemy.name} を倒した！`, "system");
+    logMessage(`${currentEnemy.name} を討伐！`, "system");
     let expMulti = 1 + (state.kamuiUpgrades.expBonus * 0.2);
     let goldMulti = 1 + (state.kamuiUpgrades.goldBonus * 0.2);
     let expGained = Math.floor(10 * Math.pow(1.1, state.floor) * expMulti);
@@ -241,10 +215,8 @@ function onEnemyDefeated() {
     
     addExp(expGained);
     state.gold += goldGained;
+    if (Math.random() < (0.3 * (1 + state.kamuiUpgrades.dropRateBonus * 0.25)) || currentEnemy.isBoss) generateLoot(state.floor);
     
-    if (Math.random() < (0.3 * (1 + state.kamuiUpgrades.dropRateBonus * 0.25)) || currentEnemy.isBoss) {
-        generateLoot(state.floor);
-    }
     updateHeaderUI();
     canProceed = true;
     updateBattleControls();
@@ -268,7 +240,7 @@ function addExp(amount) {
     while (state.hero.classExp[cid] >= nextClassExp) {
         state.hero.classExp[cid] -= nextClassExp;
         state.hero.classLevels[cid]++;
-        logMessage(`${CLASSES[cid].name}Lvアップ！ Lv.${state.hero.classLevels[cid]}`, "system");
+        logMessage(`${CLASSES[cid].name}LvUP！ Lv.${state.hero.classLevels[cid]}`, "system");
         nextClassExp = 20 * Math.pow(1.5, state.hero.classLevels[cid] - 1);
     }
     updateStatusUI();
@@ -281,15 +253,14 @@ function startBattle() {
     if (!currentEnemy) {
         currentEnemy = generateEnemy(state.floor);
         document.getElementById("enemy-name").innerText = currentEnemy.name;
-        document.getElementById("enemy-hp-bar").style.width = "100%";
         document.getElementById("enemy-sprite").src = "assets/" + currentEnemy.image;
+        updateEnemyHP();
         logMessage(`${currentEnemy.name} が現れた！`, "system");
     }
     if (!battleInterval) battleInterval = setInterval(battleTick, 1000);
 }
 
 function battleTick() {
-    // Cooldowns
     for (let id in skillCooldowns) { if (skillCooldowns[id] > 0) skillCooldowns[id]--; }
     
     if (!currentEnemy || canProceed) {
@@ -316,31 +287,31 @@ function battleTick() {
     }
 }
 
-// --- Utilities (Loot, Tavern, etc) ---
+// --- Utils ---
 
 function generateEnemy(floor) {
     const template = ENEMY_TYPES[randomInt(0, ENEMY_TYPES.length - 1)];
     const isBoss = floor % 10 === 0;
     const multi = Math.pow(1.1, floor - 1);
     const bossMulti = isBoss ? 4 : 1;
-    return { name: isBoss ? `[ボス] 巨大${template.name}` : template.name, maxHp: Math.floor(20 * template.hpMult * multi * bossMulti), hp: Math.floor(20 * template.hpMult * multi * bossMulti), atk: Math.floor(5 * template.atkMult * multi * bossMulti), def: Math.floor(2 * template.defMult * multi * bossMulti), isBoss, image: template.image };
+    const hp = Math.floor(20 * template.hpMult * multi * bossMulti);
+    return { name: isBoss ? `[ボス] 巨大${template.name}` : template.name, maxHp: hp, hp: hp, atk: Math.floor(5 * template.atkMult * multi * bossMulti), def: Math.floor(2 * template.defMult * multi * bossMulti), isBoss, image: template.image };
 }
 
 function generateLoot(floor) {
     if (state.inventory.length >= state.maxInventory) return;
     const type = ['weapon', 'armor', 'accessory'][randomInt(0, 2)];
     let rarity = getRandomRarity();
-    const effectiveLvl = Math.max(1, floor + randomInt(-2, 2));
-    let baseStat = Math.floor(10 * Math.pow(1.05, effectiveLvl) * rarity.statMult);
-    let item = { id: Date.now() + randomInt(0,999), type, rarity, lvl: effectiveLvl };
-    const prefix = PREFIXES[randomInt(0, PREFIXES.length - 1)];
-    if (type === 'weapon') { item.name = prefix + "の剣"; item.atk = baseStat; }
-    else if (type === 'armor') { item.name = prefix + "の鎧"; item.def = baseStat; }
-    else { item.name = prefix + "の指輪"; if (Math.random() > 0.5) { item.atk = Math.floor(baseStat*0.4); item.def = Math.floor(baseStat*0.4); } else { item.hp = baseStat * 5; } }
-    item.name = `[Lv.${effectiveLvl}] ${item.name}`;
-    item.value = Math.floor(baseStat * rarity.statMult);
+    const fl = Math.max(1, floor + randomInt(-2, 2));
+    let stat = Math.floor(10 * Math.pow(1.05, fl) * rarity.statMult);
+    let item = { id: Date.now() + randomInt(0,999), type, rarity, lvl: fl };
+    if (type === 'weapon') { item.name = "の剣"; item.atk = stat; }
+    else if (type === 'armor') { item.name = "の鎧"; item.def = stat; }
+    else { item.name = "の指輪"; if (Math.random() > 0.5) { item.atk = Math.floor(stat*0.4); item.def = Math.floor(stat*0.4); } else { item.hp = stat * 5; } }
+    item.name = `[Lv.${fl}] ${item.name}`;
+    item.value = Math.floor(stat * rarity.statMult);
     state.inventory.push(item);
-    logMessage(`${item.name} を入手！`, "loot");
+    logMessage(`${item.name} を獲得！`, "loot");
     updateInventoryUI();
 }
 
@@ -348,7 +319,7 @@ function refreshTavern() {
     availableMercs = [];
     const fl = Math.max(1, Math.floor(state.floor / 5));
     for (let i=0; i<3; i++) {
-        const n = MERCENARY_NAMES[randomInt(0, 5)];
+        const n = ["アーサー", "ランスロット", "ジャンヌ", "ジークフリート", "ロビン", "マーリン"][randomInt(0, 5)];
         const l = Math.max(1, fl + randomInt(-2, 2));
         availableMercs.push({ id: Date.now()+i, name: n, level: l, atk: 5+(l*3), price: Math.floor(100*Math.pow(1.5, l)) });
     }
@@ -365,17 +336,15 @@ function updateAllUI() {
         if(state.hero.classId === key) opt.selected = true;
         sel.appendChild(opt);
     }
-    updateStatusUI(); updateEquipmentUI(); updateInventoryUI(); updatePartyUI(); updateKamuiUI(); updateBattleControls();
+    updateStatusUI(); updateEquipmentUI(); updateInventoryUI(); updatePartyUI(); updateKamuiUI(); updateBattleControls(); updateEnemyHP();
 }
 
 function updateBattleControls() {
     const autoBtn = document.getElementById("btn-toggle-auto");
     const manualCtrl = document.getElementById("manual-controls");
     const proceedCtrl = document.getElementById("proceed-controls");
-    
     autoBtn.innerText = state.isAutoMode ? "AUTO: ON" : "AUTO: OFF";
     state.isAutoMode ? autoBtn.classList.add("active") : autoBtn.classList.remove("active");
-
     if (canProceed) {
         manualCtrl.classList.add("hidden");
         proceedCtrl.classList.remove("hidden");
@@ -396,6 +365,7 @@ function updateStatusUI() {
     document.getElementById("hero-max-hp").innerText = stats.maxHp;
     document.getElementById("hero-atk").innerText = stats.atk;
     document.getElementById("hero-def").innerText = stats.def;
+    updateHeroHP(0);
 }
 
 function openSkillModal() {
@@ -404,10 +374,8 @@ function openSkillModal() {
     const cid = state.hero.classId;
     const skills = CLASSES[cid].skills;
     const curLvl = state.hero.classLevels[cid];
-
     skills.forEach(s => {
-        const btn = document.createElement("button");
-        btn.className = "skill-btn";
+        const btn = document.createElement("button"); btn.className = "skill-btn";
         const isLocked = s.unlockLvl > curLvl;
         const cd = skillCooldowns[s.id] || 0;
         btn.disabled = isLocked || cd > 0;
@@ -417,7 +385,6 @@ function openSkillModal() {
     });
     document.getElementById("skill-modal").classList.remove("hidden");
 }
-
 function closeSkillModal() { document.getElementById("skill-modal").classList.add("hidden"); }
 
 function updateHeaderUI() { document.getElementById("current-floor").innerText = state.floor; document.getElementById("gold-amount").innerText = state.gold; document.getElementById("kamui-amount").innerText = state.kamui; }
@@ -431,7 +398,6 @@ function hireMercenary(i) { if (state.party.length >= 3) return; const m = avail
 function dismissMercenary(i) { if (confirm("解雇しますか?")) { state.party.splice(i, 1); updatePartyUI(); saveGame(); } }
 function buyKamuiUpgrade(t) { const c = t === 'statsBonus' ? 3 : (t === 'dropRateBonus' ? 2 : 1); if (state.kamui >= c) { state.kamui -= c; state.kamuiUpgrades[t]++; updateAllUI(); saveGame(); } }
 function doPrestige() { const g = Math.floor(state.floor / 5); if (g < 2) return; if (confirm("転生しますか?")) { state.kamui += g; state.floor = 1; state.hero.level = 1; state.hero.exp = 0; state.hero.nextExp = 10; state.hero.baseAtk = 10; state.hero.baseDef = 5; state.hero.maxHp = 100; state.party = []; state.hero.hp = getHeroTotalStats().maxHp; currentEnemy = null; canProceed = false; updateAllUI(); saveGame(); startBattle(); } }
-
 function openItemModal(i) { selectedItemIndex = i; const item = state.inventory[i]; document.getElementById("item-modal").classList.remove("hidden"); document.getElementById("modal-item-name").innerText = item.name; document.getElementById("modal-item-name").className = item.rarity.colorClass; document.getElementById("modal-item-stats").innerHTML = `売却: ${item.value} G`; }
 
 // Events
