@@ -41,12 +41,12 @@ body {
 
 #game-container {
     width: 100%;
-    max-width: 1200px;
+    max-width: 1400px;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    padding: 1rem;
-    gap: 1rem;
+    padding: 1.5rem;
+    gap: 1.5rem;
 }
 
 /* Header */
@@ -54,56 +54,65 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 2rem;
-    background: var(--panel-bg);
-    border: 1px solid var(--panel-border);
-    border-radius: 12px;
-    backdrop-filter: blur(10px);
+    padding: 1.25rem 2.5rem;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .header-info h1 {
-    font-size: 1.5rem;
-    font-weight: 800;
+    font-size: 1.75rem;
+    font-weight: 900;
     margin-bottom: 0.25rem;
-    background: linear-gradient(to right, #60a5fa, #a855f7);
+    background: linear-gradient(135deg, #60a5fa, #a855f7);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
 }
-.subtitle {
-    font-size: 1rem;
-    color: #eab308;
-    -webkit-text-fill-color: #eab308;
-    text-shadow: 0 0 5px rgba(234, 179, 8, 0.5);
-    margin-left: 0.5rem;
-}
-
-.floor-display { font-size: 1.1rem; font-weight: 600; color: var(--accent-color); }
-.currency-display { font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
 
 /* Main Content Layout */
 #main-content {
     display: flex;
     flex: 1;
-    gap: 1rem;
+    gap: 1.5rem;
+    min-height: 0; /* Important for flex child scrolling */
+}
+
+@media (min-width: 1024px) {
+    #main-content {
+        display: grid;
+        grid-template-columns: 320px 1fr 320px;
+    }
 }
 
 .panel {
-    background: var(--panel-bg);
-    border: 1px solid var(--panel-border);
-    border-radius: 12px;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
     padding: 1.5rem;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(12px);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease;
+}
+
+.panel:hover {
+    border-color: rgba(59, 130, 246, 0.3);
 }
 
 .panel h2 {
-    font-size: 1.1rem;
-    margin-bottom: 0.75rem;
-    border-bottom: 2px solid var(--panel-border);
-    padding-bottom: 0.5rem;
-    color: var(--text-muted);
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.75rem;
+    color: var(--accent-color);
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 ::-webkit-scrollbar { width: 6px; }
