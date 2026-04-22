@@ -31,7 +31,10 @@ const getInitialState = () => ({
     inventory: [], maxInventory: 50,
     party: [],
     kamuiUpgrades: { expBonus: 0, goldBonus: 0, dropRateBonus: 0, statsBonus: 0 },
-    achievements: { kills: {}, totalKills: 0 },
+    achievements: { 
+        kills: {}, totalKills: 0, total_loot: 0, loot_rare: 0, loot_epic: 0, loot_legendary: 0,
+        gold_spent: 0, prestige_count: 0, total_boss_kills: 0, refine_count: 0, total_hired: 0
+    },
     currentTitleId: null,
     isAutoMode: false 
 });
@@ -50,10 +53,119 @@ let skillCooldowns = {};
 // --- Data Definitions ---
 
 const TITLES = [
-    { id: 'novice_slayer', name: 'スライムハンター', req: { 'スライム': 10 }, bonus: { atk: 5 }, desc: 'スライム10体撃破: ATK+5' },
-    { id: 'goblin_slayer', name: 'ゴブリンキラー', req: { 'ゴブリン': 20 }, bonus: { def: 10 }, desc: 'ゴブリン20体撃破: DEF+10' },
-    { id: 'dragon_slayer', name: 'ドラゴンスレイヤー', req: { 'ドラゴン': 5 }, bonus: { atkPct: 0.1 }, desc: 'ドラゴン5体撃破: ATK+10%' },
-    { id: 'collector', name: '収集家', req: { 'total_loot': 50 }, bonus: { goldPct: 0.2 }, desc: 'アイテム50個獲得: ゴールド+20%' }
+    // --- Slayer Series (13 Enemies * 3 Tiers = 39) ---
+    { id: 'sl_slime_1', name: 'スライムハンター', req: { 'スライム': 10 }, bonus: { atk: 5 }, desc: 'スライム10体: ATK+5' },
+    { id: 'sl_slime_2', name: 'スライムキラー', req: { 'スライム': 50 }, bonus: { atk: 20 }, desc: 'スライム50体: ATK+20' },
+    { id: 'sl_slime_3', name: 'スライムマスター', req: { 'スライム': 200 }, bonus: { atkPct: 0.05 }, desc: 'スライム200体: ATK+5%' },
+    { id: 'sl_goblin_1', name: 'ゴブリンキラー', req: { 'ゴブリン': 10 }, bonus: { def: 5 }, desc: 'ゴブリン10体: DEF+5' },
+    { id: 'sl_goblin_2', name: 'ゴブリンブレイカー', req: { 'ゴブリン': 50 }, bonus: { def: 20 }, desc: 'ゴブリン50体: DEF+20' },
+    { id: 'sl_goblin_3', name: 'ゴブリンロード', req: { 'ゴブリン': 200 }, bonus: { defPct: 0.05 }, desc: 'ゴブリン200体: DEF+5%' },
+    { id: 'sl_wolf_1', name: 'ウルフハンター', req: { 'ウルフ': 10 }, bonus: { atk: 8 }, desc: 'ウルフ10体: ATK+8' },
+    { id: 'sl_wolf_2', name: '疾風の狩人', req: { 'ウルフ': 50 }, bonus: { atk: 30 }, desc: 'ウルフ50体: ATK+30' },
+    { id: 'sl_wolf_3', name: '神狼の友', req: { 'ウルフ': 200 }, bonus: { atkPct: 0.08 }, desc: 'ウルフ200体: ATK+8%' },
+    { id: 'sl_skeleton_1', name: '骨砕き', req: { 'スケルトン': 10 }, bonus: { atk: 10 }, desc: '骸骨10体: ATK+10' },
+    { id: 'sl_skeleton_2', name: '不死を狩る者', req: { 'スケルトン': 50 }, bonus: { atk: 40 }, desc: '骸骨50体: ATK+40' },
+    { id: 'sl_skeleton_3', name: 'デスマスター', req: { 'スケルトン': 200 }, bonus: { atkPct: 0.1 }, desc: '骸骨200体: ATK+10%' },
+    { id: 'sl_orc_1', name: 'オークキラー', req: { 'オーク': 10 }, bonus: { def: 15 }, desc: 'オーク10体: DEF+15' },
+    { id: 'sl_orc_2', name: '猪突猛進', req: { 'オーク': 50 }, bonus: { def: 50 }, desc: 'オーク50体: DEF+50' },
+    { id: 'sl_orc_3', name: '破壊の化身', req: { 'オーク': 200 }, bonus: { defPct: 0.12 }, desc: 'オーク200体: DEF+12%' },
+    { id: 'sl_gargoyle_1', name: '石像壊し', req: { 'ガーゴイル': 10 }, bonus: { def: 20 }, desc: 'ガーゴイル10体: DEF+20' },
+    { id: 'sl_gargoyle_2', name: '不落の守護者', req: { 'ガーゴイル': 50 }, bonus: { def: 80 }, desc: 'ガーゴイル50体: DEF+80' },
+    { id: 'sl_gargoyle_3', name: '金剛不壊', req: { 'ガーゴイル': 200 }, bonus: { defPct: 0.15 }, desc: 'ガーゴイル200体: DEF+15%' },
+    { id: 'sl_zombie_1', name: 'ゾンビハンター', req: { 'ゾンビ': 10 }, bonus: { hp: 50 }, desc: 'ゾンビ10体: HP+50' },
+    { id: 'sl_zombie_2', name: '腐敗を絶つ者', req: { 'ゾンビ': 50 }, bonus: { hp: 200 }, desc: 'ゾンビ50体: HP+200' },
+    { id: 'sl_zombie_3', name: '不老不死', req: { 'ゾンビ': 200 }, bonus: { hpPct: 0.1 }, desc: 'ゾンビ200体: HP+10%' },
+    { id: 'sl_ghost_1', name: '霊感持ち', req: { 'ゴースト': 10 }, bonus: { def: 10 }, desc: '幽霊10体: DEF+10' },
+    { id: 'sl_ghost_2', name: 'エクソシスト', req: { 'ゴースト': 50 }, bonus: { def: 40 }, desc: '幽霊50体: DEF+40' },
+    { id: 'sl_ghost_3', name: '虚無を見つめる者', req: { 'ゴースト': 200 }, bonus: { defPct: 0.1 }, desc: '幽霊200体: DEF+10%' },
+    { id: 'sl_golem_1', name: '石の心', req: { 'ゴーレム': 10 }, bonus: { def: 30 }, desc: 'ゴーレム10体: DEF+30' },
+    { id: 'sl_golem_2', name: '鉄壁の戦士', req: { 'ゴーレム': 50 }, bonus: { def: 100 }, desc: 'ゴーレム50体: DEF+100' },
+    { id: 'sl_golem_3', name: '岩壁の覇者', req: { 'ゴーレム': 200 }, bonus: { defPct: 0.2 }, desc: 'ゴーレム200体: DEF+20%' },
+    { id: 'sl_vampire_1', name: '吸血鬼の天敵', req: { 'ヴァンパイア': 10 }, bonus: { atk: 30 }, desc: '吸血鬼10体: ATK+30' },
+    { id: 'sl_vampire_2', name: '月下の狩人', req: { 'ヴァンパイア': 50 }, bonus: { atk: 120 }, desc: '吸血鬼50体: ATK+120' },
+    { id: 'sl_vampire_3', name: '真祖を継ぐ者', req: { 'ヴァンパイア': 200 }, bonus: { atkPct: 0.15 }, desc: '吸血鬼200体: ATK+15%' },
+    { id: 'sl_demon_1', name: '悪魔払い', req: { 'デーモン': 10 }, bonus: { atk: 50 }, desc: '悪魔10体: ATK+50' },
+    { id: 'sl_demon_2', name: '地獄の番犬', req: { 'デーモン': 50 }, bonus: { atk: 200 }, desc: '悪魔50体: ATK+200' },
+    { id: 'sl_demon_3', name: '魔界の王', req: { 'デーモン': 200 }, bonus: { atkPct: 0.25 }, desc: '悪魔200体: ATK+25%' },
+    { id: 'sl_dragon_1', name: '竜騎士候補', req: { 'ドラゴン': 1 }, bonus: { atk: 50 }, desc: '竜1体: ATK+50' },
+    { id: 'sl_dragon_2', name: 'ドラゴンスレイヤー', req: { 'ドラゴン': 10 }, bonus: { atkPct: 0.2 }, desc: '竜10体: ATK+20%' },
+    { id: 'sl_dragon_3', name: '竜神', req: { 'ドラゴン': 50 }, bonus: { atkPct: 0.5 }, desc: '竜50体: ATK+50%' },
+    { id: 'sl_rare_1', name: '幸運の持ち主', req: { 'メタルこんぶ': 1 }, bonus: { goldPct: 0.1 }, desc: 'メタル1体: Gold+10%' },
+    { id: 'sl_rare_2', name: 'メタルハンター', req: { 'メタルこんぶ': 5 }, bonus: { goldPct: 0.3 }, desc: 'メタル5体: Gold+30%' },
+    { id: 'sl_rare_3', name: '黄金の導き', req: { 'メタルこんぶ': 20 }, bonus: { goldPct: 1.0 }, desc: 'メタル20体: Gold+100%' },
+
+    // --- Floor Series (10) ---
+    { id: 'fl_10', name: '冒険の始まり', req: { 'floor': 10 }, bonus: { hp: 20 }, desc: '10階到達: HP+20' },
+    { id: 'fl_50', name: '中堅冒険者', req: { 'floor': 50 }, bonus: { hp: 100 }, desc: '50階到達: HP+100' },
+    { id: 'fl_100', name: '熟練の戦士', req: { 'floor': 100 }, bonus: { hpPct: 0.1 }, desc: '100階到達: HP+10%' },
+    { id: 'fl_200', name: '英雄の領域', req: { 'floor': 200 }, bonus: { atkPct: 0.1, defPct: 0.1 }, desc: '200階到達: ATK/DEF+10%' },
+    { id: 'fl_500', name: '伝説の帰還', req: { 'floor': 500 }, bonus: { atkPct: 0.2, defPct: 0.2, hpPct: 0.2 }, desc: '500階到達: 全+20%' },
+    { id: 'fl_1000', name: '神話の完結', req: { 'floor': 1000 }, bonus: { atkPct: 1.0, defPct: 1.0, hpPct: 1.0 }, desc: '1000階到達: 全+100%' },
+    { id: 'fl_pre_1', name: '一歩先へ', req: { 'floor': 5 }, bonus: { atk: 2 }, desc: '5階到達: ATK+2' },
+    { id: 'fl_pre_2', name: '地下探索者', req: { 'floor': 25 }, bonus: { def: 10 }, desc: '25階到達: DEF+10' },
+    { id: 'fl_pre_3', name: '迷宮の覇者', req: { 'floor': 75 }, bonus: { atk: 50 }, desc: '75階到達: ATK+50' },
+    { id: 'fl_pre_4', name: '奈落の底を知る者', req: { 'floor': 300 }, bonus: { hp: 1000 }, desc: '300階到達: HP+1000' },
+
+    // --- Gold Series (10) ---
+    { id: 'gd_1k', name: '小金持ち', req: { 'gold': 1000 }, bonus: { goldPct: 0.05 }, desc: '1,000G: Gold+5%' },
+    { id: 'gd_10k', name: '商人の弟子', req: { 'gold': 10000 }, bonus: { goldPct: 0.1 }, desc: '10,000G: Gold+10%' },
+    { id: 'gd_100k', name: '資産家', req: { 'gold': 100000 }, bonus: { goldPct: 0.2 }, desc: '100,000G: Gold+20%' },
+    { id: 'gd_1m', name: '大富豪', req: { 'gold': 1000000 }, bonus: { goldPct: 0.5 }, desc: '1,000,000G: Gold+50%' },
+    { id: 'gd_10m', name: '世界の支配者', req: { 'gold': 10000000 }, bonus: { goldPct: 1.0 }, desc: '10,000,000G: Gold+100%' },
+    { id: 'gd_acc_1', name: '浪費家', req: { 'gold_spent': 5000 }, bonus: { atk: 10 }, desc: '5,000G消費: ATK+10' },
+    { id: 'gd_acc_2', name: '太っ腹', req: { 'gold_spent': 50000 }, bonus: { atk: 100 }, desc: '50,000G消費: ATK+100' },
+    { id: 'gd_acc_3', name: '国家予算', req: { 'gold_spent': 500000 }, bonus: { atkPct: 0.2 }, desc: '500,000G消費: ATK+20%' },
+    { id: 'gd_acc_4', name: '経済の守護神', req: { 'gold_spent': 5000000 }, bonus: { atkPct: 0.5 }, desc: '5,000,000G消費: ATK+50%' },
+    { id: 'gd_save_1', name: '貯金生活', req: { 'gold': 500 }, bonus: { def: 2 }, desc: '500G所持: DEF+2' },
+
+    // --- Collector Series (10) ---
+    { id: 'cl_10', name: '新米コレクター', req: { 'total_loot': 10 }, bonus: { dropPct: 0.05 }, desc: '10個獲得: Drop+5%' },
+    { id: 'cl_50', name: '収集家', req: { 'total_loot': 50 }, bonus: { dropPct: 0.1 }, desc: '50個獲得: Drop+10%' },
+    { id: 'cl_100', name: '目利き', req: { 'total_loot': 100 }, bonus: { dropPct: 0.15 }, desc: '100個獲得: Drop+15%' },
+    { id: 'cl_500', name: 'トレジャーハンター', req: { 'total_loot': 500 }, bonus: { dropPct: 0.3 }, desc: '500個獲得: Drop+30%' },
+    { id: 'cl_1000', name: '遺物の王', req: { 'total_loot': 1000 }, bonus: { dropPct: 0.5 }, desc: '1000個獲得: Drop+50%' },
+    { id: 'cl_rar_1', name: 'レア好き', req: { 'loot_rare': 5 }, bonus: { atk: 20 }, desc: 'レア5個: ATK+20' },
+    { id: 'cl_rar_2', name: 'エピックマニア', req: { 'loot_epic': 3 }, bonus: { atkPct: 0.1 }, desc: 'エピック3個: ATK+10%' },
+    { id: 'cl_rar_3', name: '神の目を持つ者', req: { 'loot_legendary': 1 }, bonus: { atkPct: 0.3 }, desc: '伝説1個: ATK+30%' },
+    { id: 'cl_inv_1', name: '整理整頓', req: { 'total_loot': 20 }, bonus: { def: 5 }, desc: '20個獲得: DEF+5' },
+    { id: 'cl_inv_2', name: '倉庫番', req: { 'total_loot': 200 }, bonus: { hp: 500 }, desc: '200個獲得: HP+500' },
+
+    // --- Kamui Series (10) ---
+    { id: 'km_1', name: '転生の芽生え', req: { 'kamui': 1 }, bonus: { atk: 10, def: 10 }, desc: '神威1: ATK/DEF+10' },
+    { id: 'km_10', name: '繰り返す命', req: { 'kamui': 10 }, bonus: { atkPct: 0.1, defPct: 0.1 }, desc: '神威10: ATK/DEF+10%' },
+    { id: 'km_50', name: '理を外れる者', req: { 'kamui': 50 }, bonus: { atkPct: 0.3, defPct: 0.3 }, desc: '神威50: ATK/DEF+30%' },
+    { id: 'km_100', name: '不滅の神威', req: { 'kamui': 100 }, bonus: { atkPct: 1.0, defPct: 1.0 }, desc: '神威100: ATK/DEF+100%' },
+    { id: 'km_pre_1', name: '初めての別れ', req: { 'prestige_count': 1 }, bonus: { expPct: 0.1 }, desc: '転生1回: EXP+10%' },
+    { id: 'km_pre_2', name: '転生の旅人', req: { 'prestige_count': 5 }, bonus: { expPct: 0.3 }, desc: '転生5回: EXP+30%' },
+    { id: 'km_pre_3', name: '輪廻転生', req: { 'prestige_count': 20 }, bonus: { expPct: 1.0 }, desc: '転生20回: EXP+100%' },
+    { id: 'km_pre_4', name: '解脱', req: { 'prestige_count': 100 }, bonus: { expPct: 5.0 }, desc: '転生100回: EXP+500%' },
+    { id: 'km_val_1', name: '徳を積む者', req: { 'kamui': 5 }, bonus: { hp: 100 }, desc: '神威5: HP+100' },
+    { id: 'km_val_2', name: '聖者', req: { 'kamui': 30 }, bonus: { hpPct: 0.5 }, desc: '神威30: HP+50%' },
+
+    // --- Training Series (10) ---
+    { id: 'tr_lvl_50', name: '努力家', req: { 'hero_level': 50 }, bonus: { atk: 25, def: 25 }, desc: 'Lv50: ATK/DEF+25' },
+    { id: 'tr_lvl_100', name: '限界を超えし者', req: { 'hero_level': 100 }, bonus: { atkPct: 0.2 }, desc: 'Lv100: ATK+20%' },
+    { id: 'tr_lvl_200', name: '超越者', req: { 'hero_level': 200 }, bonus: { atkPct: 0.5, defPct: 0.5 }, desc: 'Lv200: ATK/DEF+50%' },
+    { id: 'tr_sk_1', name: '技能の卵', req: { 'class_level_sum': 10 }, bonus: { atk: 10 }, desc: 'クラス合計Lv10: ATK+10' },
+    { id: 'tr_sk_2', name: '万能選手', req: { 'class_level_sum': 50 }, bonus: { atkPct: 0.1, defPct: 0.1 }, desc: 'クラス合計Lv50: 全10%' },
+    { id: 'tr_sk_3', name: '大賢者', req: { 'class_level_sum': 200 }, bonus: { atkPct: 0.5, defPct: 0.5, hpPct: 0.5 }, desc: 'クラス合計Lv200: 全50%' },
+    { id: 'tr_ref_1', name: '武器職人の友人', req: { 'refine_count': 5 }, bonus: { atk: 15 }, desc: '強化5回: ATK+15' },
+    { id: 'tr_ref_2', name: '鍛冶屋の旦那', req: { 'refine_count': 25 }, bonus: { atk: 100 }, desc: '強化25回: ATK+100' },
+    { id: 'tr_ref_3', name: '伝説の鍛冶師', req: { 'refine_count': 100 }, bonus: { atkPct: 0.5 }, desc: '強化100回: ATK+50%' },
+    { id: 'tr_ref_4', name: '神の槌を持つ者', req: { 'refine_count': 500 }, bonus: { atkPct: 2.0 }, desc: '強化500回: ATK+200%' },
+
+    // --- Social/Merc Series (11) ---
+    { id: 'so_merc_1', name: '孤独じゃない', req: { 'party_size': 1 }, bonus: { hp: 50 }, desc: '仲間1人: HP+50' },
+    { id: 'so_merc_2', name: 'リーダーの資質', req: { 'party_size': 3 }, bonus: { atk: 30, def: 30 }, desc: '仲間3人: ATK/DEF+30' },
+    { id: 'so_hire_1', name: '人たらし', req: { 'total_hired': 5 }, bonus: { goldPct: 0.05 }, desc: '雇用5回: Gold+5%' },
+    { id: 'so_hire_2', name: '傭兵王', req: { 'total_hired': 20 }, bonus: { goldPct: 0.2 }, desc: '雇用20回: Gold+20%' },
+    { id: 'so_hire_3', name: '千両役者', req: { 'total_hired': 100 }, bonus: { goldPct: 0.5 }, desc: '雇用100回: Gold+50%' },
+    { id: 'so_time_1', name: '駆け出しの旅', req: { 'total_kills': 100 }, bonus: { expPct: 0.05 }, desc: '100体撃破: EXP+5%' },
+    { id: 'so_time_2', name: 'ベテラン冒険者', req: { 'total_kills': 1000 }, bonus: { expPct: 0.15 }, desc: '1000体撃破: EXP+15%' },
+    { id: 'so_time_3', name: '不眠不休', req: { 'total_kills': 10000 }, bonus: { expPct: 0.5 }, desc: '10000体撃破: EXP+50%' },
+    { id: 'so_time_4', name: '時の支配者', req: { 'total_kills': 100000 }, bonus: { expPct: 2.0 }, desc: '100000体撃破: EXP+200%' },
+    { id: 'so_boss_1', name: '強敵への挑戦', req: { 'total_boss_kills': 10 }, bonus: { atk: 50 }, desc: 'ボス10体: ATK+50' },
+    { id: 'so_boss_2', name: '覇王を討つ者', req: { 'total_boss_kills': 100 }, bonus: { atkPct: 0.5 }, desc: 'ボス100体: ATK+50%' }
 ];
 
 const CLASSES = {
@@ -270,7 +382,7 @@ function onEnemyDefeated() {
 
     let expG = Math.floor(10 * Math.pow(1.03, state.floor) * expM);
     let goldG = Math.floor(5 * Math.pow(1.03, state.floor) * goldM);
-    if (currentEnemy.isBoss) { expG *= 3; goldG *= 3; }
+    if (currentEnemy.isBoss) { expG *= 3; goldG *= 3; state.achievements.total_boss_kills++; }
     if (currentEnemy.isRare) { expG *= 10; goldG *= 10; }
 
     state.hero.exp += expG; state.hero.classExp[state.hero.classId] += expG;
@@ -384,6 +496,10 @@ function generateLoot(floor) {
     
     i.value = Math.floor(finalVal * rar.statMult * 0.5);
     state.inventory.push(i); 
+    state.achievements.total_loot++;
+    if (rar.name === 'レア') state.achievements.loot_rare++;
+    if (rar.name === 'エピック') state.achievements.loot_epic++;
+    if (rar.name === 'レジェンダリー') state.achievements.loot_legendary++;
     logMessage(`${i.name} 獲得！`, "loot"); 
     updateInventoryUI();
 }
@@ -432,12 +548,25 @@ function updateStatusUI() {
     document.getElementById("hero-atk").innerText = stats.atk;
     document.getElementById("hero-def").innerText = stats.def;
     
+    // Calculate Title/Achievement requirements for "now" (ones that depend on current state, not historical)
+    const checkReq = (t) => {
+        return Object.keys(t.req).every(k => {
+            if (k === 'floor') return state.floor >= t.req[k];
+            if (k === 'gold') return state.gold >= t.req[k];
+            if (k === 'kamui') return state.kamui >= t.req[k];
+            if (k === 'hero_level') return state.hero.level >= t.req[k];
+            if (k === 'party_size') return state.party.length >= t.req[k];
+            if (k === 'class_level_sum') return Object.values(state.hero.classLevels).reduce((a,b)=>a+b, 0) >= t.req[k];
+            return (state.achievements[k] || state.achievements.kills[k] || 0) >= t.req[k];
+        });
+    };
+
     // Update Title Select
     const tList = document.getElementById("title-list");
     if (tList) {
         tList.innerHTML = "";
         TITLES.forEach(t => {
-            const unlocked = Object.keys(t.req).every(k => (state.achievements.kills[k] || 0) >= t.req[k]) || (t.id === 'collector' && state.achievements.totalKills >= t.req['total_loot']);
+            const unlocked = checkReq(t);
             const div = document.createElement("div");
             div.className = `title-item ${unlocked ? 'unlocked' : 'locked'}`;
             div.innerHTML = `<div><strong>${t.name}</strong><br><small>${t.desc}</small></div>`;
@@ -525,7 +654,8 @@ function openItemModal(i) {
         refineBtn.innerText = `強化する (${cost}G)`;
         refineBtn.onclick = () => {
             if (state.gold >= cost) {
-                state.gold -= cost; item.lvl++;
+                state.gold -= cost; state.achievements.gold_spent += cost; item.lvl++;
+                state.achievements.refine_count++;
                 if (item.atk) item.atk = Math.floor(item.atk * 1.1);
                 if (item.def) item.def = Math.floor(item.def * 1.1);
                 if (item.hp) item.hp = Math.floor(item.hp * 1.1);
@@ -536,13 +666,13 @@ function openItemModal(i) {
     }
 }
 
-function hireMercenary(i) { if (state.party.length >= 3) return; const m = availableMercs[i]; if (state.gold >= m.price) { state.gold -= m.price; state.party.push({...m}); availableMercs.splice(i, 1); updateAllUI(); saveGame(); } }
+function hireMercenary(i) { if (state.party.length >= 3) return; const m = availableMercs[i]; if (state.gold >= m.price) { state.gold -= m.price; state.achievements.gold_spent += m.price; state.achievements.total_hired++; state.party.push({...m}); availableMercs.splice(i, 1); updateAllUI(); saveGame(); } }
 function dismissMercenary(i) { if (confirm("解雇しますか?")) { state.party.splice(i, 1); updatePartyUI(); saveGame(); } }
 function buyKamuiUpgrade(t) { const c = t === 'statsBonus' ? 3 : (t === 'dropRateBonus' ? 2 : 1); if (state.kamui >= c) { state.kamui -= c; state.kamuiUpgrades[t]++; updateAllUI(); saveGame(); } }
 function doPrestige() {
     const g = Math.floor(state.floor / 5); if (g < 2) { alert("10階以上進む必要があります！"); return; }
     if (confirm(`${g} 神威を得て転生しますか？`)) {
-        state.kamui += g; state.floor = 1; state.hero.level = 1; state.hero.exp = 0; state.hero.nextExp = 10;
+        state.kamui += g; state.achievements.prestige_count++; state.floor = 1; state.hero.level = 1; state.hero.exp = 0; state.hero.nextExp = 10;
         state.hero.baseAtk = 10; state.hero.baseDef = 5; state.hero.maxHp = 100; state.party = [];
         state.hero.hp = getHeroTotalStats().maxHp; currentEnemy = null; canProceed = false; isActing = false;
         updateAllUI(); saveGame(); startBattle();
