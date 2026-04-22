@@ -63,13 +63,13 @@ const RARITIES = [
 ];
 
 const ENEMY_TYPES = [
-    { name: "スライム", hpMult: 0.8, atkMult: 0.8, defMult: 0.5 },
-    { name: "ゴブリン", hpMult: 1.0, atkMult: 1.0, defMult: 0.8 },
-    { name: "ウルフ", hpMult: 0.9, atkMult: 1.2, defMult: 0.6 },
-    { name: "スケルトン", hpMult: 0.8, atkMult: 1.5, defMult: 0.5 },
-    { name: "オーク", hpMult: 1.5, atkMult: 1.2, defMult: 1.0 },
-    { name: "ガーゴイル", hpMult: 1.5, atkMult: 1.0, defMult: 2.0 },
-    { name: "ドラゴン", hpMult: 3.0, atkMult: 2.5, defMult: 2.0 }
+    { name: "スライム", hpMult: 0.8, atkMult: 0.8, defMult: 0.5, image: "slime.png" },
+    { name: "ゴブリン", hpMult: 1.0, atkMult: 1.0, defMult: 0.8, image: "goblin.png" },
+    { name: "ウルフ", hpMult: 0.9, atkMult: 1.2, defMult: 0.6, image: "wolf.png" },
+    { name: "スケルトン", hpMult: 0.8, atkMult: 1.5, defMult: 0.5, image: "skeleton.png" },
+    { name: "オーク", hpMult: 1.5, atkMult: 1.2, defMult: 1.0, image: "orc.png" },
+    { name: "ガーゴイル", hpMult: 1.5, atkMult: 1.0, defMult: 2.0, image: "gargoyle.png" },
+    { name: "ドラゴン", hpMult: 3.0, atkMult: 2.5, defMult: 2.0, image: "dragon.png" }
 ];
 
 const WEAPON_NAMES = ["の剣", "の斧", "の短剣", "の槍", "の杖", "の弓"];
@@ -146,7 +146,8 @@ function generateEnemy(floor) {
     let def = Math.floor(2 * template.defMult * floorMultiplier * bossMultiplier);
 
     const name = isBoss ? `[ボス] 巨大${template.name}` : template.name;
-    return { name, maxHp: hp, hp: hp, atk, def, isBoss };
+    const image = isBoss && template.name !== "ドラゴン" ? "dragon.png" : template.image; // Boss is always dragon image for now or its own if defined. Let's just use template image.
+    return { name, maxHp: hp, hp: hp, atk, def, isBoss, image: template.image };
 }
 
 function generateLoot(floor) {
@@ -327,6 +328,7 @@ function startBattle() {
         currentEnemy = generateEnemy(state.floor);
         document.getElementById("enemy-name").innerText = currentEnemy.name;
         document.getElementById("enemy-hp-bar").style.width = "100%";
+        document.getElementById("enemy-sprite").src = "assets/" + currentEnemy.image;
         logMessage(`${currentEnemy.name} が現れた！`, "system");
     }
     if (!battleInterval) battleInterval = setInterval(battleTick, 1000);
@@ -351,6 +353,11 @@ function battleTick() {
     // Hero attacks
     let heroDmg = Math.max(1, stats.atk - currentEnemy.def + randomInt(-2, 2));
     currentEnemy.hp -= heroDmg;
+    // Animation
+    document.querySelector(".hero").classList.remove("attack-anim-hero");
+    void document.querySelector(".hero").offsetWidth;
+    document.querySelector(".hero").classList.add("attack-anim-hero");
+
     logMessage(`勇者の攻撃！ ${currentEnemy.name}に ${heroDmg} のダメージ！`);
 
     // Mercs attack
@@ -404,6 +411,12 @@ function battleTick() {
         if (!isBattling || !currentEnemy) return;
         let enemyDmg = Math.max(1, currentEnemy.atk - stats.def + randomInt(-1, 1));
         updateHeroHP(-enemyDmg);
+        
+        // Animation
+        document.querySelector(".enemy").classList.remove("attack-anim-enemy");
+        void document.querySelector(".enemy").offsetWidth;
+        document.querySelector(".enemy").classList.add("attack-anim-enemy");
+
         logMessage(`${currentEnemy.name}の攻撃！ 勇者は ${enemyDmg} のダメージを受けた！`, "damage");
 
         if (state.hero.hp <= 0) {
