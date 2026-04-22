@@ -32,7 +32,8 @@ body {
 }
 
 .mt-1 { margin-top: 1rem; }
-.w-100 { width: 100%; }
+.mb-05 { margin-bottom: 0.5rem; }
+.w-100 { margin-top: 0.5rem; width: 100%; }
 
 #game-container {
     width: 100%;

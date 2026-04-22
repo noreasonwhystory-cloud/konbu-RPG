@@ -520,6 +520,46 @@ function useSkill(skill) {
     skillCooldowns[skill.id] = skill.cd; closeSkillModal();
 }
 
+function sellWeakerItems() {
+    let goldGained = 0;
+    let itemsToKeep = [];
+    state.inventory.forEach(item => {
+        const current = state.equipment[item.type];
+        if (!current) {
+            itemsToKeep.push(item);
+            return;
+        }
+        
+        let isWeaker = false;
+        if (item.type === 'weapon') {
+            if ((item.atk || 0) < (current.atk || 0)) isWeaker = true;
+        } else if (item.type === 'armor') {
+            if ((item.def || 0) < (current.def || 0)) isWeaker = true;
+        } else {
+            // Accessory: compare sum of stats
+            const itemSum = (item.atk || 0) + (item.def || 0) + (item.hp || 0) / 5;
+            const currentSum = (current.atk || 0) + (current.def || 0) + (current.hp || 0) / 5;
+            if (itemSum < currentSum) isWeaker = true;
+        }
+
+        if (isWeaker) {
+            goldGained += item.value;
+        } else {
+            itemsToKeep.push(item);
+        }
+    });
+
+    if (goldGained > 0) {
+        state.inventory = itemsToKeep;
+        state.gold += goldGained;
+        logMessage(`弱い装備を売却し ${goldGained} G獲得！`, "system");
+        updateAllUI();
+        saveGame();
+    } else {
+        alert("売却できる弱い装備はありません。");
+    }
+}
+
 // Events
 document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".tab-btn").forEach(b => b.onclick = () => { document.querySelectorAll(".tab-btn").forEach(x => x.classList.remove("active")); document.querySelectorAll(".tab-content").forEach(x => x.classList.remove("active")); b.classList.add("active"); const t=document.getElementById(b.dataset.target); if(t) t.classList.add("active"); });
@@ -529,7 +569,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const clSk=document.getElementById("btn-close-skill-modal"); if(clSk) clSk.onclick = () => closeSkillModal();
     const nxtF=document.getElementById("btn-next-floor"); if(nxtF) nxtF.onclick = nextFloor;
     const rtr=document.getElementById("btn-retreat"); if(rtr) rtr.onclick = () => { state.floor = 1; currentEnemy = null; canProceed = false; isActing = false; state.hero.hp = getHeroTotalStats().maxHp; updateAllUI(); saveGame(); startBattle(); };
-    const sellA=document.getElementById("btn-sell-all"); if(sellA) sellA.onclick = () => { let g = 0; let n = []; state.inventory.forEach(i => { if (i.rarity.name === 'コモン' || i.rarity.name === 'アンコモン') g += i.value; else n.push(i); }); if (g > 0) { state.inventory = n; state.gold += g; updateAllUI(); saveGame(); } };
+    const sellW=document.getElementById("btn-sell-weaker"); if(sellW) sellW.onclick = sellWeakerItems;
+    const sellA=document.getElementById("btn-sell-all"); if(sellA) sellA.onclick = () => { let g = 0; let n = []; state.inventory.forEach(i => { if (i.rarity.name === 'コモン') g += i.value; else n.push(i); }); if (g > 0) { state.inventory = n; state.gold += g; updateAllUI(); saveGame(); } };
     const clM=document.getElementById("btn-close-modal"); if(clM) clM.onclick = () => { const m=document.getElementById("item-modal"); if(m) m.classList.add("hidden"); };
     const eqI=document.getElementById("btn-equip-item"); if(eqI) eqI.onclick = () => { const i = state.inventory[selectedItemIndex]; if (state.equipment[i.type]) state.inventory.push(state.equipment[i.type]); state.equipment[i.type] = i; state.inventory.splice(selectedItemIndex, 1); const m=document.getElementById("item-modal"); if(m) m.classList.add("hidden"); updateAllUI(); saveGame(); };
     const slI=document.getElementById("btn-sell-item"); if(slI) slI.onclick = () => { state.gold += state.inventory[selectedItemIndex].value; state.inventory.splice(selectedItemIndex, 1); const m=document.getElementById("item-modal"); if(m) m.classList.add("hidden"); updateAllUI(); saveGame(); };

@@ -5,24 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>こんぶRPG - 栄光の復活</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="dark-theme">
     <div id="game-container">
-        <!-- Header: Floor, Currency, Premium Currency -->
-        <header id="game-header">
-            <div class="header-info">
-                <h1>こんぶRPG <span class="subtitle">栄光の復活</span></h1>
-                <div class="floor-display">階層: <span id="current-floor">1</span>F</div>
+        <header>
+            <div class="stats-bar">
+                <div class="stat"><span class="label">FLOOR</span> <span id="current-floor">1</span></div>
+                <div class="stat"><span class="label">GOLD</span> <span id="gold-amount">0</span></div>
+                <div class="stat"><span class="label">神威</span> <span id="kamui-amount">0</span></div>
             </div>
-            <div class="currency-display">
-                <span class="gold-icon">💰</span> <span id="gold-amount">0</span> G
-                <span class="kamui-icon" style="margin-left: 1rem; color: #a855f7;">✨</span> <span id="kamui-amount" style="color: #a855f7;">0</span> 神威
+            <div class="class-selector">
+                <label>職業変更:</label>
+                <select id="hero-class-select" class="btn-sm"></select>
             </div>
         </header>
 
-        <div id="main-content">
-            <!-- Left Panel: Tabs for Status, Party, Kamui -->
+        <main>
+            <!-- Left Panel: Character Stats -->
             <section id="left-panel" class="panel">
                 <div class="tabs">
                     <button class="tab-btn active" data-target="tab-status">主人公</button>
@@ -31,98 +33,80 @@
                     <button class="tab-btn" data-target="tab-kamui">神威</button>
                 </div>
 
-                <!-- Tab: Status -->
                 <div id="tab-status" class="tab-content active">
-                    <div class="class-selector-box">
-                        <span class="label">職業:</span>
-                        <select id="hero-class-select">
-                            <!-- Populated by JS -->
-                        </select>
-                    </div>
-                    
-                    <div class="status-box mt-1">
-                        <div class="status-row"><span class="label">レベル</span> <span id="hero-level">1</span> (<span id="hero-exp">0</span>/<span id="hero-next-exp">10</span>)</div>
-                        <div class="status-row"><span class="label">HP</span> <span id="hero-hp">100</span> / <span id="hero-max-hp">100</span></div>
-                        <div class="status-row"><span class="label">攻撃力 (ATK)</span> <span id="hero-atk">10</span></div>
-                        <div class="status-row"><span class="label">防御力 (DEF)</span> <span id="hero-def">5</span></div>
-                    </div>
-
-                    <h2>装備</h2>
-                    <div class="equipment-box">
-                        <div class="equip-slot" id="equip-weapon" data-type="weapon">
-                            <div class="slot-label">武器</div>
-                            <div class="slot-item">なし</div>
+                    <div class="status-card">
+                        <div id="hero-level" class="level-display">Lv.1</div>
+                        <div class="stat-grid">
+                            <div class="stat-item"><span>HP</span> <span class="val"><span id="hero-hp">0</span> / <span id="hero-max-hp">0</span></span></div>
+                            <div class="stat-item"><span>ATK</span> <span id="hero-atk" class="val">0</span></div>
+                            <div class="stat-item"><span>DEF</span> <span id="hero-def" class="val">0</span></div>
                         </div>
-                        <div class="equip-slot" id="equip-armor" data-type="armor">
-                            <div class="slot-label">防具</div>
-                            <div class="slot-item">なし</div>
+                        <div class="exp-bar-container">
+                            <div class="exp-info">EXP: <span id="hero-exp">0</span> / <span id="hero-next-exp">0</span></div>
+                            <div id="hero-exp-bar" class="exp-bar"></div>
                         </div>
-                        <div class="equip-slot" id="equip-accessory" data-type="accessory">
-                            <div class="slot-label">装飾品</div>
-                            <div class="slot-item">なし</div>
+                    </div>
+                    <div class="equipment-card">
+                        <h3>装備中</h3>
+                        <div class="equip-slots">
+                            <div id="equip-weapon" class="slot"><span class="slot-label">武器</span><div class="slot-item">なし</div></div>
+                            <div id="equip-armor" class="slot"><span class="slot-label">防具</span><div class="slot-item">なし</div></div>
+                            <div id="equip-accessory" class="slot"><span class="slot-label">装飾</span><div class="slot-item">なし</div></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Tab: Party (Mercenaries) -->
                 <div id="tab-party" class="tab-content">
-                    <div class="party-header">
-                        <h2>パーティー</h2>
-                        <span><span id="party-count">0</span> / <span id="party-max">3</span></span>
+                    <div class="status-card">
+                        <h3>現在の仲間</h3>
+                        <div id="party-list" class="merc-list">
+                            <!-- Mercs -->
+                        </div>
                     </div>
-                    <div id="party-list">
-                        <!-- Hired mercenaries -->
-                    </div>
-                    <h2 class="mt-1">酒場 (雇用)</h2>
-                    <div id="tavern-list">
-                        <!-- Available mercenaries -->
+                    <div class="status-card mt-1">
+                        <h3>酒場 (雇用)</h3>
+                        <div id="tavern-list" class="merc-list">
+                            <!-- Available Mercs -->
+                        </div>
                     </div>
                 </div>
 
-                <!-- Titles Tab -->
                 <div id="tab-titles" class="tab-content">
                     <div class="status-card">
                         <h3>称号獲得・装備</h3>
                         <p class="item-stats">条件を満たすと称号を装備できます。</p>
                         <div id="title-list" class="merc-list">
-                            <!-- Titles will be injected here -->
+                            <!-- Titles -->
                         </div>
                     </div>
                 </div>
 
-                <!-- Tab: Kamui (Prestige) -->
                 <div id="tab-kamui" class="tab-content">
                     <div class="kamui-info">
-                        <p>現在の階層に応じた「神威の欠片」を獲得し、レベルと進行度をリセットします。装備は引き継がれます。</p>
+                        <p>現在の階層に応じた「神威の欠片」を獲得し転生します。</p>
                         <p class="kamui-gain">獲得予定: <span id="kamui-gain-amount">0</span> ✨</p>
-                        <button id="btn-prestige" class="btn btn-danger w-100 mt-1">転生する (10階以上)</button>
+                        <button id="btn-prestige" class="btn btn-danger w-100 mt-1">転生する</button>
                     </div>
                     <h2 class="mt-1">神威強化 (永続)</h2>
-                    <div id="kamui-upgrades">
-                        <!-- Upgrades -->
-                    </div>
+                    <div id="kamui-upgrades"></div>
                 </div>
             </section>
 
             <!-- Center Panel: Battle Area -->
             <section id="battle-panel" class="panel">
-                <h2>戦闘エリア</h2>
-                
                 <div class="battle-scene">
                     <div class="combatant-group heroes">
                         <div class="combatant hero">
-                            <div class="name">勇者</div>
                             <div class="sprite-container"><img id="hero-sprite" src="assets/hero.png" alt="Hero"></div>
-                            <div class="hp-bar-container">
+                            <div id="hero-hp-bar-outer" class="hp-bar-container">
                                 <div id="hero-hp-bar" class="hp-bar"></div>
                             </div>
                         </div>
-                        <!-- Mercs will be visualised here simply as text info for MVP to save space -->
                         <div id="party-visual-list" class="party-visual-list"></div>
                     </div>
                     <div class="vs">VS</div>
                     <div class="combatant enemy">
-                        <div id="enemy-name" class="name">スライム</div>
+                        <div id="enemy-name" class="name">???</div>
                         <div class="sprite-container"><img id="enemy-sprite" src="assets/slime.png" alt="Enemy"></div>
                         <div class="enemy-hp-text"><span id="enemy-hp">0</span> / <span id="enemy-max-hp">0</span></div>
                         <div class="hp-bar-container">
@@ -133,10 +117,10 @@
 
                 <div id="battle-controls">
                     <div class="control-row">
-                        <button id="btn-toggle-auto" class="btn active">AUTO: ON</button>
+                        <button id="btn-toggle-auto" class="btn active">AUTO: OFF</button>
                         <button id="btn-retreat" class="btn btn-secondary">撤退</button>
                     </div>
-                    <div id="manual-controls" class="control-row hidden">
+                    <div id="manual-controls" class="control-row">
                         <button id="btn-attack" class="btn">攻撃</button>
                         <button id="btn-open-skills" class="btn btn-skill">特技</button>
                     </div>
@@ -144,7 +128,6 @@
                         <button id="btn-next-floor" class="btn btn-success">次の階層へ進む</button>
                     </div>
                 </div>
-
                 <div id="battle-log"></div>
             </section>
 
@@ -152,37 +135,33 @@
             <section id="inventory-panel" class="panel">
                 <div class="inventory-header">
                     <h2>インベントリ</h2>
-                    <span class="capacity"><span id="inv-count">0</span> / <span id="inv-max">50</span></span>
+                    <span class="capacity"><span id="inv-count">0</span> / 50</span>
                 </div>
                 <div id="inventory-list"></div>
                 <div class="inventory-actions">
-                    <button id="btn-sell-all" class="btn btn-secondary w-100">低レアを一括売却</button>
+                    <button id="btn-sell-weaker" class="btn btn-secondary w-100 mb-05">弱い装備を売却</button>
+                    <button id="btn-sell-all" class="btn btn-danger w-100">コモンを一括売却</button>
                 </div>
             </section>
-        </div>
+        </main>
     </div>
 
-    <!-- Specialty Selection Modal -->
+    <!-- Modals -->
     <div id="skill-modal" class="modal hidden">
         <div class="modal-content">
             <h3>特技一覧</h3>
-            <div id="skill-list" class="skill-list-container">
-                <!-- Skills populated by JS -->
-            </div>
+            <div id="skill-list" class="skill-list-container"></div>
             <div class="modal-actions mt-1">
                 <button id="btn-close-skill-modal" class="btn btn-cancel">閉じる</button>
             </div>
         </div>
     </div>
 
-    <!-- Item Modal -->
     <div id="item-modal" class="modal hidden">
         <div class="modal-content">
-            <h2 id="modal-item-name" class="rarity-common">アイテム名</h2>
-            <div id="modal-item-stats" class="item-stats">ATK: 0 / DEF: 0</div>
-            <div id="modal-item-compare" class="item-compare">
-                <!-- Comparison info here -->
-            </div>
+            <h2 id="modal-item-name">アイテム名</h2>
+            <div id="modal-item-stats" class="item-stats"></div>
+            <div id="modal-item-compare" class="item-compare"></div>
             <div class="modal-actions">
                 <button id="btn-refine-item" class="btn btn-gold">強化する</button>
                 <button id="btn-equip-item" class="btn">装備する</button>
