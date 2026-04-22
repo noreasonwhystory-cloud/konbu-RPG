@@ -611,13 +611,119 @@ function openSkillModal() {
 function closeSkillModal() { const mod = document.getElementById("skill-modal"); if (mod) mod.classList.add("hidden"); }
 
 function updateHeaderUI() { document.getElementById("current-floor").innerText = state.floor; document.getElementById("gold-amount").innerText = state.gold; document.getElementById("kamui-amount").innerText = state.kamui; }
-function updateEquipmentUI() { for (let type of ['weapon', 'armor', 'accessory']) { const el = document.getElementById(`equip-${type}`); if(!el) continue; const s = el.querySelector('.slot-item'); const i = state.equipment[type]; if (i) { s.innerText = `${i.name} (${ELEMENTS[i.element]?.name || ""})`; s.className = `slot-item ${i.rarity.colorClass}`; } else { s.innerText = "なし"; s.className = "slot-item"; } } }
-function updateInventoryUI() { const list = document.getElementById("inventory-list"); if(!list) return; list.innerHTML = ""; document.getElementById("inv-count").innerText = state.inventory.length; state.inventory.forEach((i, idx) => { const d = document.createElement("div"); d.className = "inv-item"; d.innerHTML = `<div class="item-name ${i.rarity.colorClass}">${i.name}</div>`; d.onclick = () => openItemModal(idx); list.appendChild(d); }); }
+function updateEquipmentUI() { 
+    for (let type of ['weapon', 'armor', 'accessory']) { 
+        const el = document.getElementById(`equip-${type}`); 
+        if(!el) continue; 
+        const s = el.querySelector('.slot-item'); 
+        const i = state.equipment[type]; 
+        if (i) { 
+            s.innerText = `${i.name} (${ELEMENTS[i.element]?.name || ""})`; 
+            s.className = `slot-item ${i.rarity.colorClass}`; 
+            el.onclick = () => openItemModal(type, true); // Open modal for equipped item
+        } else { 
+            s.innerText = "なし"; 
+            s.className = "slot-item"; 
+            el.onclick = null;
+        } 
+    } 
+}
+
+function updateInventoryUI() { const list = document.getElementById("inventory-list"); if(!list) return; list.innerHTML = ""; document.getElementById("inv-count").innerText = state.inventory.length; state.inventory.forEach((i, idx) => { const d = document.createElement("div"); d.className = "inv-item"; d.innerHTML = `<div class="item-name ${i.rarity.colorClass}">${i.name}</div>`; d.onclick = () => openItemModal(idx, false); list.appendChild(d); }); }
+
+let selectedItemSource = null; // { typeOrIndex: index, isEquipped: bool }
+
+function openItemModal(val, isEquipped = false) {
+    selectedItemSource = { val, isEquipped };
+    const item = isEquipped ? state.equipment[val] : state.inventory[val];
+    if (!item) return;
+
+    const mod = document.getElementById("item-modal"); if (mod) mod.classList.remove("hidden");
+    const name = document.getElementById("modal-item-name"); if (name) { name.innerText = item.name; name.className = item.rarity.colorClass; }
+    
+    const currentEquip = state.equipment[item.type];
+    const st = document.getElementById("modal-item-stats");
+    let sT = `Lv.${item.lvl} / 属性: ${ELEMENTS[item.element]?.name || "無"}<br>`;
+    if (item.atk) sT += `ATK: ${item.atk} `; if (item.def) sT += `DEF: ${item.def} `; if (item.hp) sT += `HP: ${item.hp} `;
+    if (st) st.innerHTML = sT;
+
+    const compEl = document.getElementById("modal-item-compare");
+    if (compEl) {
+        if (isEquipped) {
+            compEl.innerHTML = "<div class='compare-up'>装備中</div>";
+        } else if (!currentEquip) {
+            compEl.innerHTML = "<div class='compare-up'>新規装備</div>";
+        } else {
+            let ds = []; ['atk', 'def', 'hp'].forEach(k => {
+                let d = (item[k]||0)-(currentEquip[k]||0); if(d!==0) ds.push(`${k.toUpperCase()}: <span class="${d>0?'compare-up':'compare-down'}">${d>0?'+':''}${d}</span>`);
+            });
+            compEl.innerHTML = ds.length>0 ? `比較:<br>${ds.join("<br>")}` : "性能差なし";
+        }
+    }
+    
+    // Equip/Unequip Button
+    const eqBtn = document.getElementById("btn-equip-item");
+    if (eqBtn) {
+        eqBtn.innerText = isEquipped ? "外す" : "装備する";
+        eqBtn.onclick = () => {
+            if (isEquipped) {
+                // Unequip: check capacity
+                if (state.inventory.length >= state.maxInventory) { alert("インベントリがいっぱいです！"); return; }
+                state.inventory.push(state.equipment[val]);
+                state.equipment[val] = null;
+            } else {
+                // Equip
+                if (state.equipment[item.type]) state.inventory.push(state.equipment[item.type]);
+                state.equipment[item.type] = item;
+                state.inventory.splice(val, 1);
+            }
+            closeItemModal(); updateAllUI(); saveGame();
+        };
+    }
+
+    // Sell Button logic
+    const sellBtn = document.getElementById("btn-sell-item");
+    if (sellBtn) {
+        sellBtn.disabled = isEquipped; // Cannot sell equipped items directly
+        sellBtn.onclick = () => {
+            if (!isEquipped) {
+                state.gold += item.value;
+                state.inventory.splice(val, 1);
+                closeItemModal(); updateAllUI(); saveGame();
+            }
+        };
+    }
+    
+    // Refining
+    const refineBtn = document.getElementById("btn-refine-item");
+    if (refineBtn) {
+        const cost = Math.floor(100 * Math.pow(1.2, item.lvl));
+        refineBtn.innerText = `強化する (${cost}G)`;
+        refineBtn.onclick = () => {
+            if (state.gold >= cost) {
+                state.gold -= cost; state.achievements.gold_spent += cost; item.lvl++;
+                state.achievements.refine_count++;
+                if (item.atk) item.atk = Math.floor(item.atk * 1.1);
+                if (item.def) item.def = Math.floor(item.def * 1.1);
+                if (item.hp) item.hp = Math.floor(item.hp * 1.1);
+                item.name = item.name.replace(/\[Lv\.\d+\]/, `[Lv.${item.lvl}]`);
+                saveGame(); openItemModal(val, isEquipped); updateAllUI();
+            } else alert("ゴールドが足りません！");
+        };
+    }
+}
+
+function closeItemModal() {
+    const mod = document.getElementById("item-modal");
+    if (mod) mod.classList.add("hidden");
+}
+
 function updatePartyUI() {
     const plist = document.getElementById("party-list"); if(!plist) return; plist.innerHTML = state.party.length === 0 ? "<p class='item-stats'>なし</p>" : "";
     state.party.forEach((m, i) => { const d = document.createElement("div"); d.className = "merc-item"; d.innerHTML = `<div>${m.name} Lv.${m.level}</div><button class="btn-sm" onclick="window.dismissMercenary(${i})">解雇</button>`; plist.appendChild(d); });
     const tlist = document.getElementById("tavern-list"); if(tlist) { tlist.innerHTML = availableMercs.length === 0 ? "<p class='item-stats'>なし</p>" : ""; availableMercs.forEach((m, i) => { const d = document.createElement("div"); d.className = "merc-item"; d.innerHTML = `<div>${m.name} (${m.price}G)</div><button class="btn-sm" onclick="window.hireMercenary(${i})">雇用</button>`; tlist.appendChild(d); }); }
 }
+
 function updateKamuiUI() {
     const ulist = document.getElementById("kamui-upgrades"); if(!ulist) return; ulist.innerHTML = `
         <div class="upgrade-item"><div>経験値+20% (Lv.${state.kamuiUpgrades.expBonus})</div><button class="btn-sm" onclick="window.buyKamuiUpgrade('expBonus')">強化</button></div>
@@ -636,47 +742,6 @@ function logMessage(m, t = "normal") {
     log.appendChild(d);
     if (log.children.length > 30) log.removeChild(log.firstChild);
     log.scrollTop = log.scrollHeight;
-}
-
-function openItemModal(i) {
-    selectedItemIndex = i; const item = state.inventory[i];
-    const mod = document.getElementById("item-modal"); if (mod) mod.classList.remove("hidden");
-    const name = document.getElementById("modal-item-name"); if (name) { name.innerText = item.name; name.className = item.rarity.colorClass; }
-    
-    const current = state.equipment[item.type];
-    const st = document.getElementById("modal-item-stats");
-    let sT = `Lv.${item.lvl} / 属性: ${ELEMENTS[item.element]?.name || "無"}<br>`;
-    if (item.atk) sT += `ATK: ${item.atk} `; if (item.def) sT += `DEF: ${item.def} `; if (item.hp) sT += `HP: ${item.hp} `;
-    if (st) st.innerHTML = sT;
-
-    const compEl = document.getElementById("modal-item-compare");
-    if (compEl) {
-        if (!current) compEl.innerHTML = "<div class='compare-up'>新規装備</div>";
-        else {
-            let ds = []; ['atk', 'def', 'hp'].forEach(k => {
-                let d = (item[k]||0)-(current[k]||0); if(d!==0) ds.push(`${k.toUpperCase()}: <span class="${d>0?'compare-up':'compare-down'}">${d>0?'+':''}${d}</span>`);
-            });
-            compEl.innerHTML = ds.length>0 ? `比較:<br>${ds.join("<br>")}` : "性能差なし";
-        }
-    }
-    
-    // Refining
-    const refineBtn = document.getElementById("btn-refine-item");
-    if (refineBtn) {
-        const cost = Math.floor(100 * Math.pow(1.2, item.lvl));
-        refineBtn.innerText = `強化する (${cost}G)`;
-        refineBtn.onclick = () => {
-            if (state.gold >= cost) {
-                state.gold -= cost; state.achievements.gold_spent += cost; item.lvl++;
-                state.achievements.refine_count++;
-                if (item.atk) item.atk = Math.floor(item.atk * 1.1);
-                if (item.def) item.def = Math.floor(item.def * 1.1);
-                if (item.hp) item.hp = Math.floor(item.hp * 1.1);
-                item.name = item.name.replace(/\[Lv\.\d+\]/, `[Lv.${item.lvl}]`);
-                saveGame(); openItemModal(selectedItemIndex); updateAllUI();
-            } else alert("ゴールドが足りません！");
-        };
-    }
 }
 
 function hireMercenary(i) { if (state.party.length >= 3) return; const m = availableMercs[i]; if (state.gold >= m.price) { state.gold -= m.price; state.achievements.gold_spent += m.price; state.achievements.total_hired++; state.party.push({...m}); availableMercs.splice(i, 1); updateAllUI(); saveGame(); } }
