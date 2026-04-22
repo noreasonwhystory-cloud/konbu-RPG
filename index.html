@@ -31,6 +31,7 @@
                     <button class="tab-btn" data-target="tab-party">仲間</button>
                     <button class="tab-btn" data-target="tab-titles">称号</button>
                     <button class="tab-btn" data-target="tab-kamui">神威</button>
+                    <button class="tab-btn" data-target="tab-system">システム</button>
                 </div>
 
                 <div id="tab-status" class="tab-content active">
@@ -89,6 +90,23 @@
                     </div>
                     <h2 class="mt-1">神威強化 (永続)</h2>
                     <div id="kamui-upgrades"></div>
+                </div>
+
+                <div id="tab-system" class="tab-content">
+                    <div class="status-card">
+                        <h3>データ引き継ぎ</h3>
+                        <p class="item-stats">セーブコードをコピーして他の環境へデータを移行できます。</p>
+                        <div class="mt-1">
+                            <button id="btn-export-code" class="btn btn-secondary w-100">セーブコードを発行</button>
+                        </div>
+                        <div class="mt-1">
+                            <textarea id="save-code-area" class="save-code-area" placeholder="ここにコードを貼り付け"></textarea>
+                            <button id="btn-import-code" class="btn btn-primary w-100">コードから読み込む</button>
+                        </div>
+                        <div class="mt-2 pt-1 border-top">
+                            <button id="btn-reset-game" class="btn btn-danger w-100">全データを削除してリセット</button>
+                        </div>
+                    </div>
                 </div>
             </section>
 

@@ -566,6 +566,39 @@ function sellWeakerItems() {
     }
 }
 
+function exportSaveCode() {
+    const code = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
+    const area = document.getElementById("save-code-area");
+    if (area) {
+        area.value = code;
+        area.select();
+        document.execCommand("copy");
+        alert("セーブコードをクリップボードにコピーしました！\nこのコードをメモ帳などに保存してください。");
+    }
+}
+
+function importSaveCode() {
+    const code = document.getElementById("save-code-area").value.trim();
+    if (!code) { alert("コードを入力してください。"); return; }
+    try {
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(code))));
+        if (confirm("データを上書きして読み込みますか？")) {
+            state = deepMerge(getInitialState(), decoded);
+            saveGame(); updateAllUI();
+            alert("データを読み込みました！");
+        }
+    } catch (e) {
+        alert("無効なセーブコードです。");
+    }
+}
+
+function resetGame() {
+    if (confirm("全てのデータを削除して最初からやり直しますか？\nこの操作は取り消せません。")) {
+        localStorage.removeItem(SAVE_KEY);
+        location.reload();
+    }
+}
+
 // Events
 document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".tab-btn").forEach(b => b.onclick = () => { document.querySelectorAll(".tab-btn").forEach(x => x.classList.remove("active")); document.querySelectorAll(".tab-content").forEach(x => x.classList.remove("active")); b.classList.add("active"); const t=document.getElementById(b.dataset.target); if(t) t.classList.add("active"); });
@@ -582,6 +615,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const slI=document.getElementById("btn-sell-item"); if(slI) slI.onclick = () => { state.gold += state.inventory[selectedItemIndex].value; state.inventory.splice(selectedItemIndex, 1); const m=document.getElementById("item-modal"); if(m) m.classList.add("hidden"); updateAllUI(); saveGame(); };
     const cSel=document.getElementById("hero-class-select"); if(cSel) cSel.onchange = (e) => { state.hero.classId = e.target.value; updateAllUI(); saveGame(); };
     const prst=document.getElementById("btn-prestige"); if(prst) prst.onclick = doPrestige;
+    
+    // System events
+    const expCode=document.getElementById("btn-export-code"); if(expCode) expCode.onclick = exportSaveCode;
+    const impCode=document.getElementById("btn-import-code"); if(impCode) impCode.onclick = importSaveCode;
+    const rstG=document.getElementById("btn-reset-game"); if(rstG) rstG.onclick = resetGame;
+
     loadGame(); startBattle();
 });
 
