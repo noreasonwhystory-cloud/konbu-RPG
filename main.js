@@ -1,6 +1,18 @@
+// --- Global Error Handler for Mobile Debugging ---
+window.onerror = function(msg, url, lineNo, columnNo, error) {
+    const log = document.getElementById("battle-log");
+    if (log) {
+        const d = document.createElement("div");
+        d.className = "log-entry danger";
+        d.innerText = `Error: ${msg} [Line: ${lineNo}]`;
+        log.appendChild(d);
+    }
+    return false;
+};
+
 // --- Game State & Data ---
-const GAME_VERSION = "1.0";
-const SAVE_KEY = "konbuRpgSaveData_v10";
+const GAME_VERSION = "1.1";
+const SAVE_KEY = "konbuRpgSaveData_v11";
 
 const getInitialState = () => ({
     floor: 1, gold: 0, kamui: 0,
@@ -27,41 +39,40 @@ let canProceed = false;
 let isActing = false;
 let skillCooldowns = {};
 
-// --- Class Definitions with Parameters ---
+// --- Data Definitions ---
 
 const CLASSES = {
-    novice: {
-        name: "見習い", hpPerLvl: 5, atkPerLvl: 1, defPerLvl: 0.5,
-        atkMult: 1.0, defMult: 1.0, hpMult: 1.0,
-        skills: [ { id: 'bash', name: 'バッシュ', unlockLvl: 1, mult: 1.5, cd: 3, desc: '1.5倍ダメージ' }, { id: 'focus', name: '精神集中', unlockLvl: 5, mult: 2.2, cd: 5, desc: '2.2倍ダメージ' } ]
-    },
-    warrior: {
-        name: "戦士", hpPerLvl: 8, atkPerLvl: 2, defPerLvl: 1,
-        atkMult: 1.2, defMult: 1.1, hpMult: 1.1,
-        skills: [ { id: 'power', name: '強撃', unlockLvl: 1, mult: 2.5, cd: 4, desc: '2.5倍ダメージ' }, { id: 'whirlwind', name: '旋風斬', unlockLvl: 10, mult: 4.0, cd: 8, desc: '4.0倍ダメージ' } ]
-    },
-    knight: {
-        name: "騎士", hpPerLvl: 12, atkPerLvl: 1, defPerLvl: 2,
-        atkMult: 1.0, defMult: 1.5, hpMult: 1.3,
-        skills: [ { id: 'holy', name: 'ホーリーライト', unlockLvl: 1, mult: 1.2, heal: 0.1, cd: 5, desc: '攻撃＋HP10%回復' }, { id: 'shield', name: 'シールドバッシュ', unlockLvl: 5, mult: 1.8, stun: true, cd: 6, desc: '1.8倍ダメ＋敵遅延' } ]
-    },
-    berserker: {
-        name: "狂戦士", hpPerLvl: 6, atkPerLvl: 3, defPerLvl: 0.2,
-        atkMult: 1.8, defMult: 0.5, hpMult: 0.8,
-        skills: [ { id: 'blood', name: 'ブラッドラスト', unlockLvl: 1, mult: 4.0, recoil: 0.1, cd: 5, desc: '4倍ダメ（反動10%）' }, { id: 'exec', name: '処刑', unlockLvl: 10, mult: 6.0, recoil: 0.2, cd: 10, desc: '6倍ダメ（反動20%）' } ]
-    },
-    thief: {
-        name: "盗賊", hpPerLvl: 5, atkPerLvl: 1.5, defPerLvl: 0.5,
-        atkMult: 1.1, defMult: 0.8, hpMult: 0.9,
-        skills: [ { id: 'steal', name: 'ぶんどる', unlockLvl: 1, mult: 1.2, gold: true, cd: 4, desc: '攻撃＋ゴールド' }, { id: 'triple', name: '三連斬', unlockLvl: 5, mult: 3.5, cd: 7, desc: '3.5倍ダメージ' } ]
-    }
+    novice: { name: "見習い", hpPerLvl: 5, atkPerLvl: 1, defPerLvl: 0.5, atkMult: 1.0, defMult: 1.0, hpMult: 1.0, skills: [ { id: 'bash', name: 'バッシュ', unlockLvl: 1, mult: 1.5, cd: 3, desc: '1.5倍ダメ' }, { id: 'focus', name: '精神集中', unlockLvl: 5, mult: 2.2, cd: 5, desc: '2.2倍ダメ' } ] },
+    warrior: { name: "戦士", hpPerLvl: 8, atkPerLvl: 2, defPerLvl: 1, atkMult: 1.2, defMult: 1.1, hpMult: 1.1, skills: [ { id: 'power', name: '強撃', unlockLvl: 1, mult: 2.5, cd: 4, desc: '2.5倍ダメ' }, { id: 'whirlwind', name: '旋風斬', unlockLvl: 10, mult: 4.0, cd: 8, desc: '4.0倍ダメ' } ] },
+    knight: { name: "騎士", hpPerLvl: 12, atkPerLvl: 1, defPerLvl: 2, atkMult: 1.0, defMult: 1.5, hpMult: 1.3, skills: [ { id: 'holy', name: 'ホーリーライト', unlockLvl: 1, mult: 1.2, heal: 0.1, cd: 5, desc: '攻撃＋回復' }, { id: 'shield', name: 'シールドバッシュ', unlockLvl: 5, mult: 1.8, stun: true, cd: 6, desc: '攻撃＋敵遅延' } ] },
+    berserker: { name: "狂戦士", hpPerLvl: 6, atkPerLvl: 3, defPerLvl: 0.2, atkMult: 1.8, defMult: 0.5, hpMult: 0.8, skills: [ { id: 'blood', name: 'ブラッドラスト', unlockLvl: 1, mult: 4.0, recoil: 0.1, cd: 5, desc: '4倍ダメ(反動)' }, { id: 'exec', name: '処刑', unlockLvl: 10, mult: 6.0, recoil: 0.2, cd: 10, desc: '6倍ダメ(反動)' } ] },
+    thief: { name: "盗賊", hpPerLvl: 5, atkPerLvl: 1.5, defPerLvl: 0.5, atkMult: 1.1, defMult: 0.8, hpMult: 0.9, skills: [ { id: 'steal', name: 'ぶんどる', unlockLvl: 1, mult: 1.2, gold: true, cd: 4, desc: '攻撃＋G' }, { id: 'triple', name: '三連斬', unlockLvl: 5, mult: 3.5, cd: 7, desc: '3.5倍ダメ' } ] }
 };
+
+const ENEMY_TYPES = [
+    { name: "スライム", hpMult: 0.8, atkMult: 0.8, defMult: 0.5, image: "slime.png" },
+    { name: "ゴブリン", hpMult: 1.0, atkMult: 1.0, defMult: 0.8, image: "goblin.png" },
+    { name: "ウルフ", hpMult: 0.9, atkMult: 1.2, defMult: 0.6, image: "wolf.png" },
+    { name: "スケルトン", hpMult: 0.8, atkMult: 1.5, defMult: 0.5, image: "skeleton.png" },
+    { name: "オーク", hpMult: 1.5, atkMult: 1.2, defMult: 1.0, image: "orc.png" },
+    { name: "ガーゴイル", hpMult: 1.5, atkMult: 1.0, defMult: 2.0, image: "gargoyle.png" },
+    { name: "ドラゴン", hpMult: 3.0, atkMult: 2.5, defMult: 2.0, image: "dragon.png" }
+];
+
+const RARITIES = [
+    { name: 'コモン', colorClass: 'rarity-common', weight: 60, statMult: 1 },
+    { name: 'アンコモン', colorClass: 'rarity-uncommon', weight: 25, statMult: 1.5 },
+    { name: 'レア', colorClass: 'rarity-rare', weight: 10, statMult: 2.5 },
+    { name: 'エピック', colorClass: 'rarity-epic', weight: 4, statMult: 4 },
+    { name: 'レジェンダリー', colorClass: 'rarity-legendary', weight: 1, statMult: 8 }
+];
 
 // --- Core ---
 
 function saveGame() { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
 
 function deepMerge(target, source) {
+    if (!source || typeof source !== 'object') return target;
     for (const key in source) {
         if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
             if (!target[key]) target[key] = {};
@@ -85,13 +96,11 @@ function loadGame() {
 }
 
 function getHeroTotalStats() {
-    const currentClass = CLASSES[state.hero.classId];
+    const currentClass = CLASSES[state.hero.classId] || CLASSES.novice;
     const kamuiMult = 1 + (state.kamuiUpgrades.statsBonus * 0.1);
-    
     let atk = state.hero.baseAtk;
     let def = state.hero.baseDef;
     let maxHp = state.hero.maxHp;
-
     if (state.hero.classLevels) {
         for (let cid in state.hero.classLevels) {
             const lvl = state.hero.classLevels[cid];
@@ -103,15 +112,8 @@ function getHeroTotalStats() {
             }
         }
     }
-
-    // Apply class-specific multipliers
-    atk *= (currentClass.atkMult || 1.0);
-    def *= (currentClass.defMult || 1.0);
-    maxHp *= (currentClass.hpMult || 1.0);
-    
-    // Apply kamui bonus
+    atk *= currentClass.atkMult; def *= currentClass.defMult; maxHp *= currentClass.hpMult;
     atk *= kamuiMult; def *= kamuiMult; maxHp *= kamuiMult;
-
     for (const key in state.equipment) {
         const i = state.equipment[key];
         if (i) { atk += (i.atk || 0); def += (i.def || 0); maxHp += (i.hp || 0); }
@@ -124,16 +126,21 @@ function updateHeroHP(amount) {
     const stats = getHeroTotalStats();
     if (state.hero.hp > stats.maxHp) state.hero.hp = stats.maxHp;
     if (state.hero.hp < 0) state.hero.hp = 0;
-    document.getElementById("hero-hp-bar").style.width = `${(state.hero.hp / stats.maxHp) * 100}%`;
-    document.getElementById("hero-hp").innerText = Math.floor(state.hero.hp);
+    const bar = document.getElementById("hero-hp-bar");
+    if (bar) bar.style.width = `${(state.hero.hp / stats.maxHp) * 100}%`;
+    const text = document.getElementById("hero-hp");
+    if (text) text.innerText = Math.floor(state.hero.hp);
 }
 
 function updateEnemyHP() {
     if (!currentEnemy) return;
     const p = Math.max(0, (currentEnemy.hp / currentEnemy.maxHp) * 100);
-    document.getElementById("enemy-hp-bar").style.width = `${p}%`;
-    document.getElementById("enemy-hp").innerText = Math.floor(Math.max(0, currentEnemy.hp));
-    document.getElementById("enemy-max-hp").innerText = currentEnemy.maxHp;
+    const bar = document.getElementById("enemy-hp-bar");
+    if (bar) bar.style.width = `${p}%`;
+    const curText = document.getElementById("enemy-hp");
+    if (curText) curText.innerText = Math.floor(Math.max(0, currentEnemy.hp));
+    const maxText = document.getElementById("enemy-max-hp");
+    if (maxText) maxText.innerText = currentEnemy.maxHp;
 }
 
 // --- Actions ---
@@ -145,7 +152,7 @@ function executeAttack(multiplier = 1, isSkill = false) {
     let dmg = Math.max(1, Math.floor((stats.atk - currentEnemy.def) * multiplier) + Math.floor(Math.random() * 5) - 2);
     currentEnemy.hp -= dmg;
     const heroEl = document.querySelector(".hero");
-    heroEl.classList.remove("attack-anim-hero"); void heroEl.offsetWidth; heroEl.classList.add("attack-anim-hero");
+    if (heroEl) { heroEl.classList.remove("attack-anim-hero"); void heroEl.offsetWidth; heroEl.classList.add("attack-anim-hero"); }
     logMessage(`${isSkill ? '特技！' : ''}勇者の攻撃！ ${dmg}ダメージ`);
     updateEnemyHP();
     if (currentEnemy.hp <= 0) {
@@ -168,7 +175,7 @@ function enemyTurn() {
     let d = Math.max(1, currentEnemy.atk - stats.def + Math.floor(Math.random()*3)-1);
     updateHeroHP(-d);
     const enemyEl = document.querySelector(".enemy");
-    enemyEl.classList.remove("attack-anim-enemy"); void enemyEl.offsetWidth; enemyEl.classList.add("attack-anim-enemy");
+    if (enemyEl) { enemyEl.classList.remove("attack-anim-enemy"); void enemyEl.offsetWidth; enemyEl.classList.add("attack-anim-enemy"); }
     logMessage(`${currentEnemy.name}の反撃！ ${d}ダメージ`, "damage");
     if (state.hero.hp <= 0) {
         logMessage("敗北した...", "danger"); state.floor = 1; state.hero.hp = getHeroTotalStats().maxHp;
@@ -212,8 +219,10 @@ function startBattle() {
     if (canProceed) return;
     if (!currentEnemy) {
         currentEnemy = generateEnemy(state.floor);
-        document.getElementById("enemy-name").innerText = currentEnemy.name;
-        document.getElementById("enemy-sprite").src = "assets/" + currentEnemy.image;
+        const nameEl = document.getElementById("enemy-name");
+        if (nameEl) nameEl.innerText = currentEnemy.name;
+        const spriteEl = document.getElementById("enemy-sprite");
+        if (spriteEl) spriteEl.src = "assets/" + currentEnemy.image;
         updateEnemyHP(); logMessage(`${currentEnemy.name} (階層.${state.floor}) が出現！`, "system");
     }
     if (!battleInterval) battleInterval = setInterval(battleTick, 1000);
@@ -221,15 +230,8 @@ function startBattle() {
 
 function battleTick() {
     for (let id in skillCooldowns) { if (skillCooldowns[id] > 0) skillCooldowns[id]--; }
-    
-    // Auto-proceed logic for AUTO mode
-    if (state.isAutoMode && canProceed) {
-        nextFloor();
-        return;
-    }
-
+    if (state.isAutoMode && canProceed) { nextFloor(); return; }
     if (canProceed) { updateBattleControls(); return; }
-
     if (state.isAutoMode && !isActing) {
         executeAttack();
         const cid = state.hero.classId;
@@ -249,6 +251,7 @@ function nextFloor() {
 // --- Utils ---
 
 function generateEnemy(floor) {
+    if (!ENEMY_TYPES) return { name: "Error", hp: 100, maxHp: 100, atk: 1, def: 1, image: "slime.png" };
     const t = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
     const boss = floor % 10 === 0;
     const m = Math.pow(1.03, floor - 1) * (boss ? 5 : 1);
@@ -273,8 +276,8 @@ function generateLoot(floor) {
 }
 
 function getRandomRarity() {
-    const total = [60, 25, 10, 4, 1].reduce((a, b) => a + b, 0);
-    let r = Math.random() * total;
+    if (!RARITIES) return { name: 'コモン', colorClass: 'rarity-common', statMult: 1 };
+    const r = Math.random() * 100;
     if (r < 60) return RARITIES[0]; if (r < 85) return RARITIES[1]; if (r < 95) return RARITIES[2]; if (r < 99) return RARITIES[3]; return RARITIES[4];
 }
 
@@ -291,11 +294,14 @@ function refreshTavern() {
 
 function updateAllUI() {
     updateHeaderUI();
-    const sel = document.getElementById("hero-class-select"); sel.innerHTML = "";
-    for (let key in CLASSES) {
-        let opt = document.createElement("option"); opt.value = key; opt.innerText = CLASSES[key].name;
-        if(state.hero.classId === key) opt.selected = true;
-        sel.appendChild(opt);
+    const sel = document.getElementById("hero-class-select");
+    if (sel) {
+        sel.innerHTML = "";
+        for (let key in CLASSES) {
+            let opt = document.createElement("option"); opt.value = key; opt.innerText = CLASSES[key].name;
+            if(state.hero.classId === key) opt.selected = true;
+            sel.appendChild(opt);
+        }
     }
     updateStatusUI(); updateEquipmentUI(); updateInventoryUI(); updatePartyUI(); updateKamuiUI(); updateBattleControls(); updateEnemyHP();
 }
@@ -304,31 +310,27 @@ function updateBattleControls() {
     const autoBtn = document.getElementById("btn-toggle-auto");
     const manualCtrl = document.getElementById("manual-controls");
     const proceedCtrl = document.getElementById("proceed-controls");
+    if (!autoBtn || !manualCtrl || !proceedCtrl) return;
     autoBtn.innerText = state.isAutoMode ? "AUTO: ON" : "AUTO: OFF";
     state.isAutoMode ? autoBtn.classList.add("active") : autoBtn.classList.remove("active");
-    if (canProceed) {
-        manualCtrl.classList.add("hidden");
-        proceedCtrl.classList.remove("hidden");
-    } else {
-        proceedCtrl.classList.add("hidden");
-        if (!state.isAutoMode) { manualCtrl.classList.remove("hidden"); document.getElementById("btn-attack").disabled = isActing; document.getElementById("btn-open-skills").disabled = isActing; }
-        else manualCtrl.classList.add("hidden");
-    }
+    if (canProceed) { manualCtrl.classList.add("hidden"); proceedCtrl.classList.remove("hidden"); }
+    else { proceedCtrl.classList.add("hidden"); if (!state.isAutoMode) { manualCtrl.classList.remove("hidden"); const a=document.getElementById("btn-attack"); if(a) a.disabled=isActing; const s=document.getElementById("btn-open-skills"); if(s) s.disabled=isActing; } else manualCtrl.classList.add("hidden"); }
 }
 
 function updateStatusUI() {
-    const stats = getHeroTotalStats(); const cid = state.hero.classId; const c = CLASSES[cid];
-    document.getElementById("hero-level").innerHTML = `総合Lv.${state.hero.level} / ${c.name}Lv.${state.hero.classLevels[cid]}`;
-    document.getElementById("hero-hp").innerText = Math.floor(state.hero.hp);
-    document.getElementById("hero-max-hp").innerText = stats.maxHp;
-    document.getElementById("hero-atk").innerText = stats.atk;
-    document.getElementById("hero-def").innerText = stats.def;
-    document.getElementById("hero-exp").innerText = state.hero.exp;
-    document.getElementById("hero-next-exp").innerText = state.hero.nextExp;
+    const stats = getHeroTotalStats(); const cid = state.hero.classId; const c = CLASSES[cid] || CLASSES.novice;
+    const lvlEl = document.getElementById("hero-level");
+    if (lvlEl) lvlEl.innerHTML = `総合Lv.${state.hero.level} / ${c.name}Lv.${state.hero.classLevels[cid]}`;
+    const hpEl = document.getElementById("hero-hp"); if (hpEl) hpEl.innerText = Math.floor(state.hero.hp);
+    const mhpEl = document.getElementById("hero-max-hp"); if (mhpEl) mhpEl.innerText = stats.maxHp;
+    const atkEl = document.getElementById("hero-atk"); if (atkEl) atkEl.innerText = stats.atk;
+    const defEl = document.getElementById("hero-def"); if (defEl) defEl.innerText = stats.def;
+    const expEl = document.getElementById("hero-exp"); if (expEl) expEl.innerText = state.hero.exp;
+    const nexpEl = document.getElementById("hero-next-exp"); if (nexpEl) nexpEl.innerText = state.hero.nextExp;
 }
 
 function openSkillModal() {
-    const list = document.getElementById("skill-list"); list.innerHTML = "";
+    const list = document.getElementById("skill-list"); if (!list) return; list.innerHTML = "";
     const cid = state.hero.classId;
     CLASSES[cid].skills.forEach(s => {
         const btn = document.createElement("button"); btn.className = "skill-btn";
@@ -336,37 +338,33 @@ function openSkillModal() {
         const cd = skillCooldowns[s.id] || 0;
         btn.disabled = locked || cd > 0 || isActing;
         btn.innerHTML = `<strong>${s.name}</strong> ${locked ? `(Lv.${s.unlockLvl}解放)` : (cd > 0 ? `(${cd}s)` : "")}<span class="skill-info">${s.desc}</span>`;
-        if (!btn.disabled) btn.onclick = () => {
-            if (isActing) return;
-            useSkill(s);
-        };
+        if (!btn.disabled) btn.onclick = () => { if (isActing) return; useSkill(s); };
         list.appendChild(btn);
     });
-    document.getElementById("skill-modal").classList.remove("hidden");
+    const mod = document.getElementById("skill-modal"); if (mod) mod.classList.remove("hidden");
 }
-function closeSkillModal() { document.getElementById("skill-modal").classList.add("hidden"); }
+function closeSkillModal() { const mod = document.getElementById("skill-modal"); if (mod) mod.classList.add("hidden"); }
 
-function updateHeaderUI() { document.getElementById("current-floor").innerText = state.floor; document.getElementById("gold-amount").innerText = state.gold; document.getElementById("kamui-amount").innerText = state.kamui; }
-function updateEquipmentUI() { for (let type of ['weapon', 'armor', 'accessory']) { const el = document.getElementById(`equip-${type}`).querySelector('.slot-item'); const i = state.equipment[type]; if (i) { el.innerText = i.name; el.className = `slot-item ${i.rarity.colorClass}`; } else { el.innerText = "なし"; el.className = "slot-item"; } } }
-function updateInventoryUI() { const list = document.getElementById("inventory-list"); list.innerHTML = ""; document.getElementById("inv-count").innerText = state.inventory.length; state.inventory.forEach((i, idx) => { const d = document.createElement("div"); d.className = "inv-item"; d.innerHTML = `<div class="item-name ${i.rarity.colorClass}">${i.name}</div>`; d.onclick = () => openItemModal(idx); list.appendChild(d); }); }
+function updateHeaderUI() { const f=document.getElementById("current-floor"); if(f) f.innerText=state.floor; const g=document.getElementById("gold-amount"); if(g) g.innerText=state.gold; const k=document.getElementById("kamui-amount"); if(k) k.innerText=state.kamui; }
+function updateEquipmentUI() { for (let type of ['weapon', 'armor', 'accessory']) { const el = document.getElementById(`equip-${type}`); if(!el) continue; const s = el.querySelector('.slot-item'); if(!s) continue; const i = state.equipment[type]; if (i) { s.innerText = i.name; s.className = `slot-item ${i.rarity.colorClass}`; } else { s.innerText = "なし"; s.className = "slot-item"; } } }
+function updateInventoryUI() { const list = document.getElementById("inventory-list"); if(!list) return; list.innerHTML = ""; const count=document.getElementById("inv-count"); if(count) count.innerText = state.inventory.length; state.inventory.forEach((i, idx) => { const d = document.createElement("div"); d.className = "inv-item"; d.innerHTML = `<div class="item-name ${i.rarity.colorClass}">${i.name}</div>`; d.onclick = () => openItemModal(idx); list.appendChild(d); }); }
 function updatePartyUI() {
-    document.getElementById("party-count").innerText = state.party.length;
-    const plist = document.getElementById("party-list"); plist.innerHTML = state.party.length === 0 ? "<p class='item-stats'>なし</p>" : "";
+    const count=document.getElementById("party-count"); if(count) count.innerText = state.party.length;
+    const plist = document.getElementById("party-list"); if(!plist) return; plist.innerHTML = state.party.length === 0 ? "<p class='item-stats'>なし</p>" : "";
     state.party.forEach((m, i) => { const d = document.createElement("div"); d.className = "merc-item"; d.innerHTML = `<div>${m.name} Lv.${m.level}</div><button class="btn-sm" onclick="window.dismissMercenary(${i})">解雇</button>`; plist.appendChild(d); });
-    const tlist = document.getElementById("tavern-list"); tlist.innerHTML = availableMercs.length === 0 ? "<p class='item-stats'>なし</p>" : "";
-    availableMercs.forEach((m, i) => { const d = document.createElement("div"); d.className = "merc-item"; d.innerHTML = `<div>${m.name} (${m.price}G)</div><button class="btn-sm" onclick="window.hireMercenary(${i})">雇用</button>`; tlist.appendChild(d); });
-    document.getElementById("party-visual-list").innerText = state.party.length > 0 ? `同行: ${state.party.map(m=>m.name).join(", ")}` : "";
+    const tlist = document.getElementById("tavern-list"); if(tlist) { tlist.innerHTML = availableMercs.length === 0 ? "<p class='item-stats'>なし</p>" : ""; availableMercs.forEach((m, i) => { const d = document.createElement("div"); d.className = "merc-item"; d.innerHTML = `<div>${m.name} (${m.price}G)</div><button class="btn-sm" onclick="window.hireMercenary(${i})">雇用</button>`; tlist.appendChild(d); }); }
+    const vis=document.getElementById("party-visual-list"); if(vis) vis.innerText = state.party.length > 0 ? `同行: ${state.party.map(m=>m.name).join(", ")}` : "";
 }
 function updateKamuiUI() {
-    document.getElementById("kamui-gain-amount").innerText = Math.floor(state.floor / 5);
-    const ulist = document.getElementById("kamui-upgrades"); ulist.innerHTML = `
+    const gain=document.getElementById("kamui-gain-amount"); if(gain) gain.innerText = Math.floor(state.floor / 5);
+    const ulist = document.getElementById("kamui-upgrades"); if(!ulist) return; ulist.innerHTML = `
         <div class="upgrade-item"><div>経験値+20% (Lv.${state.kamuiUpgrades.expBonus})</div><button class="btn-sm" onclick="window.buyKamuiUpgrade('expBonus')">強化</button></div>
         <div class="upgrade-item"><div>G+20% (Lv.${state.kamuiUpgrades.goldBonus})</div><button class="btn-sm" onclick="window.buyKamuiUpgrade('goldBonus')">強化</button></div>
         <div class="upgrade-item"><div>ドロップ+25% (Lv.${state.kamuiUpgrades.dropRateBonus})</div><button class="btn-sm" onclick="window.buyKamuiUpgrade('dropRateBonus')">強化</button></div>
         <div class="upgrade-item"><div>ステ+10% (Lv.${state.kamuiUpgrades.statsBonus})</div><button class="btn-sm" onclick="window.buyKamuiUpgrade('statsBonus')">強化</button></div>
     `;
 }
-function logMessage(m, t = "normal") { const log = document.getElementById("battle-log"); const d = document.createElement("div"); d.className = `log-entry ${t}`; d.innerText = m; log.appendChild(d); if (log.children.length > 30) log.removeChild(log.firstChild); log.scrollTop = log.scrollHeight; }
+function logMessage(m, t = "normal") { const log = document.getElementById("battle-log"); if(!log) return; const d = document.createElement("div"); d.className = `log-entry ${t}`; d.innerText = m; log.appendChild(d); if (log.children.length > 30) log.removeChild(log.firstChild); log.scrollTop = log.scrollHeight; }
 
 function hireMercenary(i) { if (state.party.length >= 3) return; const m = availableMercs[i]; if (state.gold >= m.price) { state.gold -= m.price; state.party.push({...m}); availableMercs.splice(i, 1); updateAllUI(); saveGame(); } }
 function dismissMercenary(i) { if (confirm("解雇しますか?")) { state.party.splice(i, 1); updatePartyUI(); saveGame(); } }
@@ -389,22 +387,24 @@ function useSkill(skill) {
     if (skill.gold) { let g = 10 + state.floor; state.gold += g; logMessage(`${g} G入手！`, "loot"); updateHeaderUI(); }
     skillCooldowns[skill.id] = skill.cd; closeSkillModal();
 }
-function openItemModal(i) { selectedItemIndex = i; const item = state.inventory[i]; document.getElementById("item-modal").classList.remove("hidden"); document.getElementById("modal-item-name").innerText = item.name; document.getElementById("modal-item-name").className = item.rarity.colorClass; document.getElementById("modal-item-stats").innerHTML = `売却: ${item.value} G`; }
+function openItemModal(i) { selectedItemIndex = i; const item = state.inventory[i]; const mod=document.getElementById("item-modal"); if(mod) mod.classList.remove("hidden"); const name=document.getElementById("modal-item-name"); if(name) { name.innerText = item.name; name.className = item.rarity.colorClass; } const st=document.getElementById("modal-item-stats"); if(st) st.innerHTML = `売却: ${item.value} G`; }
 
 // Events
-document.querySelectorAll(".tab-btn").forEach(b => b.onclick = () => { document.querySelectorAll(".tab-btn").forEach(x => x.classList.remove("active")); document.querySelectorAll(".tab-content").forEach(x => x.classList.remove("active")); b.classList.add("active"); document.getElementById(b.dataset.target).classList.add("active"); });
-document.getElementById("btn-toggle-auto").onclick = () => { state.isAutoMode = !state.isAutoMode; updateBattleControls(); saveGame(); };
-document.getElementById("btn-attack").onclick = () => executeAttack();
-document.getElementById("btn-open-skills").onclick = () => openSkillModal();
-document.getElementById("btn-close-skill-modal").onclick = () => closeSkillModal();
-document.getElementById("btn-next-floor").onclick = nextFloor;
-document.getElementById("btn-retreat").onclick = () => { state.floor = 1; currentEnemy = null; canProceed = false; isActing = false; state.hero.hp = getHeroTotalStats().maxHp; updateAllUI(); saveGame(); startBattle(); };
-document.getElementById("btn-sell-all").onclick = () => { let g = 0; let n = []; state.inventory.forEach(i => { if (i.rarity.name === 'コモン' || i.rarity.name === 'アンコモン') g += i.value; else n.push(i); }); if (g > 0) { state.inventory = n; state.gold += g; updateAllUI(); saveGame(); } };
-document.getElementById("btn-close-modal").onclick = () => document.getElementById("item-modal").classList.add("hidden");
-document.getElementById("btn-equip-item").onclick = () => { const i = state.inventory[selectedItemIndex]; if (state.equipment[i.type]) state.inventory.push(state.equipment[i.type]); state.equipment[i.type] = i; state.inventory.splice(selectedItemIndex, 1); document.getElementById("item-modal").classList.add("hidden"); updateAllUI(); saveGame(); };
-document.getElementById("btn-sell-item").onclick = () => { state.gold += state.inventory[selectedItemIndex].value; state.inventory.splice(selectedItemIndex, 1); document.getElementById("item-modal").classList.add("hidden"); updateAllUI(); saveGame(); };
-document.getElementById("hero-class-select").onchange = (e) => { state.hero.classId = e.target.value; updateAllUI(); saveGame(); };
-document.getElementById("btn-prestige").onclick = doPrestige;
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.onclick = () => { document.querySelectorAll(".tab-btn").forEach(x => x.classList.remove("active")); document.querySelectorAll(".tab-content").forEach(x => x.classList.remove("active")); b.classList.add("active"); const t=document.getElementById(b.dataset.target); if(t) t.classList.add("active"); });
+    const autoBtn=document.getElementById("btn-toggle-auto"); if(autoBtn) autoBtn.onclick = () => { state.isAutoMode = !state.isAutoMode; updateBattleControls(); saveGame(); };
+    const atkBtn=document.getElementById("btn-attack"); if(atkBtn) atkBtn.onclick = () => executeAttack();
+    const skBtn=document.getElementById("btn-open-skills"); if(skBtn) skBtn.onclick = () => openSkillModal();
+    const clSk=document.getElementById("btn-close-skill-modal"); if(clSk) clSk.onclick = () => closeSkillModal();
+    const nxtF=document.getElementById("btn-next-floor"); if(nxtF) nxtF.onclick = nextFloor;
+    const rtr=document.getElementById("btn-retreat"); if(rtr) rtr.onclick = () => { state.floor = 1; currentEnemy = null; canProceed = false; isActing = false; state.hero.hp = getHeroTotalStats().maxHp; updateAllUI(); saveGame(); startBattle(); };
+    const sellA=document.getElementById("btn-sell-all"); if(sellA) sellA.onclick = () => { let g = 0; let n = []; state.inventory.forEach(i => { if (i.rarity.name === 'コモン' || i.rarity.name === 'アンコモン') g += i.value; else n.push(i); }); if (g > 0) { state.inventory = n; state.gold += g; updateAllUI(); saveGame(); } };
+    const clM=document.getElementById("btn-close-modal"); if(clM) clM.onclick = () => { const m=document.getElementById("item-modal"); if(m) m.classList.add("hidden"); };
+    const eqI=document.getElementById("btn-equip-item"); if(eqI) eqI.onclick = () => { const i = state.inventory[selectedItemIndex]; if (state.equipment[i.type]) state.inventory.push(state.equipment[i.type]); state.equipment[i.type] = i; state.inventory.splice(selectedItemIndex, 1); const m=document.getElementById("item-modal"); if(m) m.classList.add("hidden"); updateAllUI(); saveGame(); };
+    const slI=document.getElementById("btn-sell-item"); if(slI) slI.onclick = () => { state.gold += state.inventory[selectedItemIndex].value; state.inventory.splice(selectedItemIndex, 1); const m=document.getElementById("item-modal"); if(m) m.classList.add("hidden"); updateAllUI(); saveGame(); };
+    const cSel=document.getElementById("hero-class-select"); if(cSel) cSel.onchange = (e) => { state.hero.classId = e.target.value; updateAllUI(); saveGame(); };
+    const prst=document.getElementById("btn-prestige"); if(prst) prst.onclick = doPrestige;
+    loadGame(); startBattle();
+});
 
 window.hireMercenary = hireMercenary; window.dismissMercenary = dismissMercenary; window.buyKamuiUpgrade = buyKamuiUpgrade;
-loadGame(); startBattle();
