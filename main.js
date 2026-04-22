@@ -740,6 +740,12 @@ function updatePartyUI() {
 }
 
 function updateKamuiUI() {
+    const gainEl = document.getElementById("kamui-gain-amount");
+    if (gainEl) {
+        const g = Math.floor(state.floor / 5);
+        gainEl.innerText = g;
+    }
+
     const ulist = document.getElementById("kamui-upgrades"); if(!ulist) return; ulist.innerHTML = `
         <div class="upgrade-item"><div>経験値+20% (Lv.${state.kamuiUpgrades.expBonus})</div><button class="btn-sm" onclick="window.buyKamuiUpgrade('expBonus')">強化</button></div>
         <div class="upgrade-item"><div>G+20% (Lv.${state.kamuiUpgrades.goldBonus})</div><button class="btn-sm" onclick="window.buyKamuiUpgrade('goldBonus')">強化</button></div>
