@@ -71,7 +71,13 @@ const ENEMY_TYPES = [
     { name: "スケルトン", hpMult: 0.8, atkMult: 1.5, defMult: 0.5, element: 'none', image: "skeleton.png" },
     { name: "オーク", hpMult: 1.5, atkMult: 1.2, defMult: 1.0, element: 'fire', image: "orc.png" },
     { name: "ガーゴイル", hpMult: 1.5, atkMult: 1.0, defMult: 2.0, element: 'earth', image: "gargoyle.png" },
-    { name: "ドラゴン", hpMult: 3.0, atkMult: 2.5, defMult: 2.0, element: 'fire', image: "dragon.png" }
+    { name: "ドラゴン", hpMult: 3.0, atkMult: 2.5, defMult: 2.0, element: 'fire', image: "dragon.png" },
+    { name: "ゾンビ", hpMult: 1.2, atkMult: 1.0, defMult: 0.3, element: 'earth', image: "zombie.png" },
+    { name: "ゴースト", hpMult: 0.6, atkMult: 1.2, defMult: 3.0, element: 'wind', image: "ghost.png" },
+    { name: "ゴーレム", hpMult: 2.5, atkMult: 1.5, defMult: 2.5, element: 'earth', image: "golem.png" },
+    { name: "ヴァンパイア", hpMult: 1.5, atkMult: 2.0, defMult: 1.2, element: 'water', image: "vampire.png" },
+    { name: "デーモン", hpMult: 2.0, atkMult: 2.5, defMult: 1.5, element: 'fire', image: "demon.png" },
+    { name: "キマイラ", hpMult: 3.5, atkMult: 3.0, defMult: 1.5, element: 'none', image: "chimera.png" }
 ];
 
 const RARITIES = [
