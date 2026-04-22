@@ -464,6 +464,17 @@ function updateKamuiUI() {
     `;
 }
 
+function logMessage(m, t = "normal") {
+    const log = document.getElementById("battle-log");
+    if (!log) return;
+    const d = document.createElement("div");
+    d.className = `log-entry ${t}`;
+    d.innerText = m;
+    log.appendChild(d);
+    if (log.children.length > 30) log.removeChild(log.firstChild);
+    log.scrollTop = log.scrollHeight;
+}
+
 function openItemModal(i) {
     selectedItemIndex = i; const item = state.inventory[i];
     const mod = document.getElementById("item-modal"); if (mod) mod.classList.remove("hidden");
