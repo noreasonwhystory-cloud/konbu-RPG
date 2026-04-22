@@ -24,8 +24,8 @@ const getInitialState = () => ({
     floor: 1, gold: 0, kamui: 0,
     hero: {
         classId: 'novice', level: 1, exp: 0, nextExp: 10, hp: 100, maxHp: 100, baseAtk: 10, baseDef: 5,
-        classLevels: { novice: 1, warrior: 1, knight: 1, berserker: 1, thief: 1 },
-        classExp: { novice: 0, warrior: 0, knight: 0, berserker: 0, thief: 0 }
+        classLevels: { novice: 1, warrior: 1, knight: 1, berserker: 1, thief: 1, assassin: 1, samurai: 1, hero: 1 },
+        classExp: { novice: 0, warrior: 0, knight: 0, berserker: 0, thief: 0, assassin: 0, samurai: 0, hero: 0 }
     },
     equipment: { weapon: null, armor: null, accessory: null },
     inventory: [], maxInventory: 50,
@@ -170,10 +170,13 @@ const TITLES = [
 
 const CLASSES = {
     novice: { name: "見習い", hpPerLvl: 5, atkPerLvl: 1, defPerLvl: 0.5, atkMult: 1.0, defMult: 1.0, hpMult: 1.0, image: "hero.png", skills: [ { id: 'bash', name: 'バッシュ', unlockLvl: 1, mult: 1.5, cd: 3, desc: '1.5倍ダメ' } ] },
-    warrior: { name: "戦士", hpPerLvl: 8, atkPerLvl: 2, defPerLvl: 1, atkMult: 1.2, defMult: 1.1, hpMult: 1.1, image: "hero_warrior.png", skills: [ { id: 'power', name: '強撃', unlockLvl: 1, mult: 2.5, cd: 4, desc: '2.5倍ダメ' } ] },
-    knight: { name: "騎士", hpPerLvl: 12, atkPerLvl: 1, defPerLvl: 2, atkMult: 1.0, defMult: 1.5, hpMult: 1.3, image: "hero_knight.png", skills: [ { id: 'holy', name: 'ホーリー', unlockLvl: 1, mult: 1.2, heal: 0.1, cd: 5, desc: '攻撃＋回復' } ] },
-    berserker: { name: "狂戦士", hpPerLvl: 6, atkPerLvl: 3, defPerLvl: 0.2, atkMult: 1.8, defMult: 0.5, hpMult: 0.8, image: "hero_berserker.png", skills: [ { id: 'blood', name: '血の渇き', unlockLvl: 1, mult: 4.0, recoil: 0.1, cd: 5, desc: '4倍ダメ(反動)' } ] },
-    thief: { name: "盗賊", hpPerLvl: 5, atkPerLvl: 1.5, defPerLvl: 0.5, atkMult: 1.1, defMult: 0.8, hpMult: 0.9, image: "hero_thief.png", skills: [ { id: 'steal', name: 'ぶんどる', unlockLvl: 1, mult: 1.2, gold: true, cd: 4, desc: '攻撃＋G' } ] }
+    warrior: { name: "戦士", req: { novice: 10 }, hpPerLvl: 8, atkPerLvl: 2, defPerLvl: 1, atkMult: 1.2, defMult: 1.1, hpMult: 1.1, image: "hero_warrior.png", skills: [ { id: 'power', name: '強撃', unlockLvl: 1, mult: 2.5, cd: 4, desc: '2.5倍ダメ' } ] },
+    thief: { name: "盗賊", req: { novice: 10 }, hpPerLvl: 5, atkPerLvl: 1.5, defPerLvl: 0.5, atkMult: 1.1, defMult: 0.8, hpMult: 0.9, image: "hero_thief.png", skills: [ { id: 'steal', name: 'ぶんどる', unlockLvl: 1, mult: 1.2, gold: true, cd: 4, desc: '攻撃＋G' } ] },
+    knight: { name: "騎士", req: { warrior: 20 }, hpPerLvl: 12, atkPerLvl: 1, defPerLvl: 2, atkMult: 1.0, defMult: 1.5, hpMult: 1.3, image: "hero_knight.png", skills: [ { id: 'holy', name: 'ホーリー', unlockLvl: 1, mult: 1.2, heal: 0.1, cd: 5, desc: '攻撃＋回復' } ] },
+    berserker: { name: "狂戦士", req: { warrior: 20 }, hpPerLvl: 6, atkPerLvl: 3, defPerLvl: 0.2, atkMult: 1.8, defMult: 0.5, hpMult: 0.8, image: "hero_berserker.png", skills: [ { id: 'blood', name: '血の渇き', unlockLvl: 1, mult: 4.0, recoil: 0.1, cd: 5, desc: '4倍ダメ(反動)' } ] },
+    assassin: { name: "暗殺者", req: { thief: 30 }, hpPerLvl: 6, atkPerLvl: 4, defPerLvl: 0.5, atkMult: 2.0, defMult: 0.7, hpMult: 0.8, image: "hero_thief.png", skills: [ { id: 'assassinate', name: '暗殺', unlockLvl: 1, mult: 6.0, cd: 8, desc: '6倍ダメ' } ] },
+    samurai: { name: "侍", req: { knight: 30 }, hpPerLvl: 10, atkPerLvl: 5, defPerLvl: 1, atkMult: 2.5, defMult: 1.0, hpMult: 1.0, image: "hero_warrior.png", skills: [ { id: 'slash', name: '一閃', unlockLvl: 1, mult: 3.5, cd: 4, desc: '3.5倍ダメ' } ] },
+    hero: { name: "勇者", req: { novice: 50, knight: 30, assassin: 30 }, hpPerLvl: 15, atkPerLvl: 5, defPerLvl: 5, atkMult: 3.0, defMult: 2.0, hpMult: 2.0, image: "hero.png", skills: [ { id: 'excalibur', name: '聖剣の輝き', unlockLvl: 1, mult: 10.0, cd: 10, desc: '10倍ダメ' } ] }
 };
 
 const ENEMY_TYPES = [
@@ -530,14 +533,26 @@ function updateAllUI() {
 
 function updateClassSelectorUI() {
     const sel = document.getElementById("hero-class-select");
-    if (!sel || sel.children.length > 0) return; // Only populate once
-    for (let cid in CLASSES) {
+    if (!sel) return;
+    
+    // Get unlocked jobs
+    const unlocked = Object.keys(CLASSES).filter(cid => {
+        const c = CLASSES[cid];
+        if (!c.req) return true;
+        return Object.keys(c.req).every(reqId => (state.hero.classLevels[reqId] || 1) >= c.req[reqId]);
+    });
+
+    // Only rebuild if count changed or empty
+    if (sel.children.length === unlocked.length && sel.children.length > 0) return;
+
+    sel.innerHTML = "";
+    unlocked.forEach(cid => {
         const opt = document.createElement("option");
         opt.value = cid;
         opt.innerText = CLASSES[cid].name;
         opt.selected = (state.hero.classId === cid);
         sel.appendChild(opt);
-    }
+    });
 }
 
 function updateBattleControls() {
