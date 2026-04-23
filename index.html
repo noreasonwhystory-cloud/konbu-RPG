@@ -18,8 +18,8 @@
                 <div class="stat"><span class="label">神威</span> <span id="kamui-amount">0</span></div>
             </div>
             <div class="dungeon-selector">
-                <button id="btn-dungeon-normal" class="btn-sm active">通常</button>
-                <button id="btn-dungeon-rune" class="btn-sm">ルーン</button>
+                <button id="btn-dungeon-normal" class="btn-sm active">ダンジョン</button>
+                <button id="btn-dungeon-rune" class="btn-sm">魂武ダンジョン</button>
             </div>
             <div class="class-selector">
                 <label>職業変更:</label>
@@ -175,6 +175,17 @@
             <div id="skill-list" class="skill-list-container"></div>
             <div class="modal-actions mt-1">
                 <button id="btn-close-skill-modal" class="btn btn-cancel">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="rune-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>魂武装着</h3>
+            <p>装着する魂武を選んでください</p>
+            <div id="rune-select-list" class="merc-list"></div>
+            <div class="modal-actions mt-1">
+                <button id="btn-close-rune-modal" class="btn btn-cancel">閉じる</button>
             </div>
         </div>
     </div>

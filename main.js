@@ -35,7 +35,7 @@ const getInitialState = () => ({
     achievements: { 
         kills: {}, totalKills: 0, total_loot: 0, loot_rare: 0, loot_epic: 0, loot_legendary: 0,
         gold_spent: 0, prestige_count: 0, total_boss_kills: 0, refine_count: 0, total_hired: 0,
-        rune_count: 0
+        konbu_count: 0
     },
     currentTitleId: null,
     isAutoMode: false 
@@ -206,11 +206,11 @@ const RARITIES = [
 ];
 
 const RUNES = [
-    { id: 'r_atk', name: '力のルーン', bonus: { atkPct: 0.05 }, color: '#f87171' },
-    { id: 'r_def', name: '守のルーン', bonus: { defPct: 0.05 }, color: '#60a5fa' },
-    { id: 'r_hp', name: '命のルーン', bonus: { hpPct: 0.05 }, color: '#4ade80' },
-    { id: 'r_exp', name: '智のルーン', bonus: { expPct: 0.1 }, color: '#a855f7' },
-    { id: 'r_gold', name: '富のルーン', bonus: { goldPct: 0.1 }, color: '#fbbf24' }
+    { id: 'r_atk', name: '力の魂武', bonus: { atkPct: 0.05 }, color: '#f87171' },
+    { id: 'r_def', name: '守の魂武', bonus: { defPct: 0.05 }, color: '#60a5fa' },
+    { id: 'r_hp', name: '命の魂武', bonus: { hpPct: 0.05 }, color: '#4ade80' },
+    { id: 'r_exp', name: '智の魂武', bonus: { expPct: 0.1 }, color: '#a855f7' },
+    { id: 'r_gold', name: '富の魂武', bonus: { goldPct: 0.1 }, color: '#fbbf24' }
 ];
 
 // --- Core ---
@@ -434,7 +434,7 @@ function generateRune() {
     const rData = RUNES[randomInt(0, RUNES.length - 1)];
     const rune = { ...rData, type: 'rune', value: 100 };
     state.inventory.push(rune);
-    state.achievements.rune_count++;
+    state.achievements.konbu_count++;
     logMessage(`${rune.name} を獲得！`, "loot");
 }
 
@@ -731,7 +731,7 @@ function openItemModal(val, isEquipped = false) {
     // Render Sockets
     const sockList = document.getElementById("modal-item-sockets");
     if (sockList) {
-        sockList.innerHTML = item.sockets && item.sockets.length > 0 ? "<h4>ソケット</h4>" : "";
+        sockList.innerHTML = item.sockets && item.sockets.length > 0 ? "<h4>魂武ソケット</h4>" : "";
         (item.sockets || []).forEach((runeId, idx) => {
             const d = document.createElement("div");
             d.className = "merc-item";
@@ -1013,7 +1013,7 @@ window.openRuneModal = (val, isEquipped, socketIdx) => {
     const list = document.getElementById("rune-select-list");
     list.innerHTML = "";
     const runesInInv = state.inventory.filter(i => i.type === 'rune');
-    if (runesInInv.length === 0) { list.innerHTML = "<p>ルーンを持っていません。ルーンダンジョンで集めましょう！</p>"; }
+    if (runesInInv.length === 0) { list.innerHTML = "<p>魂武を持っていません。魂武ダンジョンで集めましょう！</p>"; }
     runesInInv.forEach((r, invIdx) => {
         const d = document.createElement("div");
         d.className = "merc-item";
@@ -1040,5 +1040,5 @@ window.attachRune = (invIdx) => {
     
     document.getElementById("rune-modal").classList.add("hidden");
     updateAllUI(); openItemModal(targetSocket.val, targetSocket.isEquipped); saveGame();
-    logMessage("ルーンを装着しました！", "system");
+    logMessage("魂武を装着しました！", "system");
 };
