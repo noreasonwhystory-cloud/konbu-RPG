@@ -206,8 +206,10 @@ function getHeroTotalStats() {
 }
 
 function updateHeroHP(amount) {
-    state.hero.hp = Math.min(getHeroTotalStats().maxHp, state.hero.hp + amount);
-    const p = Math.max(0, (state.hero.hp / getHeroTotalStats().maxHp) * 100);
+    const stats = getHeroTotalStats();
+    state.hero.hp = Math.min(stats.maxHp, (state.hero.hp || stats.maxHp) + (amount || 0));
+    if (isNaN(state.hero.hp)) state.hero.hp = stats.maxHp;
+    const p = Math.max(0, (state.hero.hp / stats.maxHp) * 100);
     const bar = document.getElementById("hero-hp-bar"); if (bar) bar.style.width = `${p}%`;
     const hpEl = document.getElementById("hero-hp"); if (hpEl) hpEl.innerText = Math.floor(state.hero.hp);
 }
@@ -349,18 +351,21 @@ function updateBattleControls() {
 
 function updateEnemyHP() {
     if (!currentEnemy) return;
+    if (isNaN(currentEnemy.hp)) currentEnemy.hp = 0;
     const p = Math.max(0, (currentEnemy.hp / currentEnemy.maxHp) * 100);
     const bar = document.getElementById("enemy-hp-bar"); if (bar) bar.style.width = `${p}%`;
     document.getElementById("enemy-name").innerText = currentEnemy.name;
+    const img = document.getElementById("enemy-sprite");
+    if (img) img.src = `assets/${currentEnemy.image || 'slime.png'}`;
 }
 
 function updateInventoryUI() {
     const list = document.getElementById("inventory-list"); list.innerHTML = "";
     document.getElementById("inv-count").innerText = state.inventory.length;
     state.inventory.forEach((i, idx) => {
-        const d = document.createElement("div"); d.className = "inv-item";
-        d.style.borderColor = i.rarity ? getComputedStyle(document.documentElement).getPropertyValue(`--rarity-${i.rarity.colorClass.split('-')[1]}`) : "";
-        d.innerText = i.name.slice(0, 4); d.onclick = () => openItemModal(idx, false);
+        const d = document.createElement("div"); d.className = `inv-item ${i.rarity ? i.rarity.colorClass : ""}`;
+        d.innerText = i.name.split(" ").pop(); // Show type like "剣" or "装備"
+        d.onclick = () => openItemModal(idx, false);
         list.appendChild(d);
     });
 }
@@ -481,7 +486,7 @@ function closeSkillModal() { document.getElementById("skill-modal").classList.ad
 function useSkill(skill) {
     if ((skillCooldowns[skill.id] || 0) > 0 || !currentEnemy || canProceed || isActing) return;
     const stats = getHeroTotalStats();
-    executeAttack(skill.mult * stats.skillDmg, true);
+    executeAttack(skill.mult || 1, true);
     if (skill.heal) updateHeroHP(Math.floor(stats.maxHp * skill.heal));
     skillCooldowns[skill.id] = skill.cd; closeSkillModal();
 }

@@ -14,6 +14,12 @@
     --rarity-legendary: #fbbf24;
 }
 
+.rarity-common { color: var(--rarity-common); }
+.rarity-uncommon { color: var(--rarity-uncommon); }
+.rarity-rare { color: var(--rarity-rare); }
+.rarity-epic { color: var(--rarity-epic); }
+.rarity-legendary { color: var(--rarity-legendary); }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
