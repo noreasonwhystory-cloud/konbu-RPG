@@ -505,7 +505,7 @@ function enemyTurn() {
         const eMult = getElementMult(currentEnemy.element, defenseElem);
         let d = Math.max(1, Math.floor(currentEnemy.atk * eMult - stats.def*0.5) + randomInt(-2, 2));
         state.hero.hp -= d; updateHeroHP(0); logMessage(`${currentEnemy.name}の攻撃！ ${d}ダメージ`, "danger");
-        if (state.hero.hp <= 0) { logMessage("敗北...", "danger"); state.floor = 1; state.hero.hp = getHeroTotalStats().maxHp; currentEnemy = null; canProceed = false; isActing = false; startBattle(); }
+        if (state.hero.hp <= 0) { logMessage("敗北...", "danger"); state.floor = 0; if(state.casino.phase === 'waiting') state.casino.phase = 'ready'; state.hero.hp = getHeroTotalStats().maxHp; currentEnemy = null; canProceed = false; isActing = false; startBattle(); }
         else { isActing = false; updateBattleControls(); }
     } catch (e) {
         console.error('enemyTurn error:', e);
@@ -518,15 +518,6 @@ function onEnemyDefeated() {
     canProceed = true; logMessage(`${currentEnemy.name} 撃破！`, "system");
     const baseName = currentEnemy.name.replace("[BOSS] ", "").replace("[レア] ", "");
     state.achievements.kills[baseName] = (state.achievements.kills[baseName] || 0) + 1; state.achievements.totalKills++;
-    
-    // Casino countdown
-    if (state.casino.phase === 'waiting' && state.casino.battlesLeft > 0) {
-        state.casino.battlesLeft--;
-        if (state.casino.battlesLeft <= 0) {
-            state.casino.phase = 'ready';
-            logMessage('🎰 ミームコインの結果が出ました！カジノタブで精算してください。', 'loot');
-        }
-    }
 
     const stats = getHeroTotalStats();
     let expG = Math.floor(10 * Math.pow(1.03, state.floor) * stats.expMult);
@@ -1105,7 +1096,17 @@ function startBattle() {
     updateAllUI();
 }
 
-function nextFloor() { state.floor++; currentEnemy = null; canProceed = false; isActing = false; updateHeroHP(getHeroTotalStats().maxHp * 0.1); if(state.floor%5===0) refreshTavern(); startBattle(); }
+function nextFloor() { 
+    if (state.floor === 0 && state.casino.phase === 'buying') {
+        if (state.casino.totalInvested > 0) {
+            state.casino.phase = 'waiting';
+            logMessage('🎰 カジノ購入完了！自動で待機フェーズへ移行しました。', 'system');
+        } else {
+            state.casino.phase = 'idle';
+        }
+    }
+    state.floor++; currentEnemy = null; canProceed = false; isActing = false; updateHeroHP(getHeroTotalStats().maxHp * 0.1); if(state.floor%5===0) refreshTavern(); startBattle(); 
+}
 
 // --- Global Functions ---
 window.hireMercenary = (i) => { const m = availableMercs[i]; if (state.gold >= m.price && state.party.length < 3) { state.gold -= m.price; state.party.push(m); availableMercs.splice(i, 1); state.achievements.total_hired = (state.achievements.total_hired || 0) + 1; updateAllUI(); saveGame(); } };
@@ -1179,8 +1180,9 @@ const MEME_COIN_NAMES = [
 ];
 
 function generateCasinoRound() {
+    if (state.floor > 0) { alert("拠点（0F）のみカジノを開始できます。"); return; }
     const names = [...MEME_COIN_NAMES].sort(() => Math.random() - 0.5).slice(0, 10);
-    const cost = Math.max(100, Math.floor(state.floor * 10));
+    const cost = 100;
 
     // 2-3 winners, total multiplier sum 5~7.5 (so buying all 10 = 0.5~0.75x)
     const winnerCount = randomInt(2, 3);
@@ -1197,17 +1199,23 @@ function generateCasinoRound() {
         coins[idx].multiplier = parseFloat((budget * shares[i] / shareSum).toFixed(1));
     });
 
-    state.casino = { coins, battlesLeft: 10, phase: 'buying', totalInvested: 0 };
+    state.casino = { coins, phase: 'buying', totalInvested: 0 };
     saveGame();
 }
 
 function buyCoin(idx) {
     if (state.casino.phase !== 'buying') return;
     const coin = state.casino.coins[idx];
-    if (state.gold < coin.cost) { alert('ゴールドが足りません！'); return; }
-    state.gold -= coin.cost;
-    coin.invested += coin.cost;
-    state.casino.totalInvested += coin.cost;
+    const amountStr = prompt(`${coin.name}を何枚購入しますか？ (1枚: ${coin.cost}G)`, "1");
+    if (!amountStr) return;
+    const amount = parseInt(amountStr, 10);
+    if (isNaN(amount) || amount <= 0) { alert("正しい枚数を入力してください。"); return; }
+    const totalCost = coin.cost * amount;
+    
+    if (state.gold < totalCost) { alert('ゴールドが足りません！'); return; }
+    state.gold -= totalCost;
+    coin.invested += totalCost;
+    state.casino.totalInvested += totalCost;
     updateAllUI(); saveGame();
 }
 
@@ -1216,8 +1224,8 @@ function startCasinoWait() {
         alert('最低1枚はコインを購入してください！'); return;
     }
     state.casino.phase = 'waiting';
-    logMessage('🎰 ミームコイン購入完了！10戦後に結果が出ます！', 'system');
-    updateAllUI(); saveGame();
+    logMessage('🎰 カジノ購入締切。ダンジョン探索へ出発します！', 'system');
+    nextFloor();
 }
 
 function settleCasino() {
@@ -1265,8 +1273,13 @@ function updateCasinoUI() {
     if (casinoGoldEl) casinoGoldEl.innerText = state.gold.toLocaleString();
 
     if (phase === 'idle' || phase === 'settled') {
-        statusEl.innerHTML = '「新ラウンド」でコインが生成されます';
-        newBtn.classList.remove('hidden'); settleBtn.classList.add('hidden');
+        if (state.floor > 0) {
+            statusEl.innerHTML = '拠点（0F）のみカジノを開始できます。撤退などでお戻りください。';
+            newBtn.classList.add('hidden'); settleBtn.classList.add('hidden');
+        } else {
+            statusEl.innerHTML = '「新ラウンド」でコインが生成されます';
+            newBtn.classList.remove('hidden'); settleBtn.classList.add('hidden');
+        }
         if (phase === 'idle') { coinsEl.innerHTML = ''; resultEl.classList.add('hidden'); }
         return;
     }
@@ -1277,9 +1290,9 @@ function updateCasinoUI() {
     if (phase === 'buying') {
         statusEl.innerHTML = `コインを購入してください（投資総額: ${totalInvested}G）<br><button class="btn btn-sm" onclick="startCasinoWait()">購入完了 → ダンジョンへ</button>`;
     } else if (phase === 'waiting') {
-        statusEl.innerHTML = `⚔️ 残り${battlesLeft}戦で結果が出ます（投資: ${totalInvested}G）`;
+        statusEl.innerHTML = `⚔️ ダンジョン探索中...拠点（0F）に帰還すると結果が出ます（投資: ${totalInvested}G）`;
     } else if (phase === 'ready') {
-        statusEl.innerHTML = `🎉 結果が出ました！「精算する」を押してください`;
+        statusEl.innerHTML = `🎉 拠点へ帰還！結果が出ました！「精算する」を押してください`;
     }
 
     coinsEl.innerHTML = '';
@@ -1310,12 +1323,14 @@ function sellFiltered(filterFn, label) {
 
 function handlePrestige() {
     if (state.floor < 10) { alert("10階以降で転生可能です"); return; }
-    if (!confirm("本当に転生しますか？神威ポイントを獲得し、進行階層とゴールドがリセットされます（装備品は維持されます）。")) return;
+    // iframeなどでconfirmがブロックされる環境対策のため削除
     state.kamui += Math.floor(state.floor / 5);
     state.achievements.prestige_count = (state.achievements.prestige_count || 0) + 1;
-    state.floor = 1; state.gold = 0;
+    state.floor = 0; 
+    if (state.casino.phase === 'waiting') state.casino.phase = 'ready';
     currentEnemy = null; canProceed = false; isActing = false;
     updateAllUI(); startBattle(); saveGame();
+    alert("転生しました！神威ポイントを獲得し、0F（拠点）に戻りました。");
 }
 
 function handleEquipItem() {
@@ -1376,7 +1391,7 @@ const BUTTON_MAP = {
     "btn-import-code":       importSaveCode,
     "btn-dungeon-normal":    () => switchDungeon('normal'),
     "btn-dungeon-rune":      () => switchDungeon('rune'),
-    "btn-retreat":           () => { if (state.floor > 1) { state.floor--; currentEnemy = null; canProceed = false; isActing = false; startBattle(); } },
+    "btn-retreat":           () => { state.floor = 0; if (state.casino.phase === 'waiting') state.casino.phase = 'ready'; currentEnemy = null; canProceed = false; isActing = false; startBattle(); },
     "btn-prestige":          handlePrestige,
     "btn-equip-item":        handleEquipItem,
     "btn-refine-item":       handleRefineItem,
