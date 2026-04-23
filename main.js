@@ -40,7 +40,8 @@ const getInitialState = () => ({
         konbu_count: 0
     },
     currentTitleId: null,
-    isAutoMode: false 
+    isAutoMode: false,
+    casino: { coins: [], battlesLeft: 0, phase: 'idle', totalInvested: 0 }
 });
 
 let state = getInitialState();
@@ -507,6 +508,14 @@ function onEnemyDefeated() {
     canProceed = true; logMessage(`${currentEnemy.name} 撃破！`, "system");
     const baseName = currentEnemy.name.replace("[BOSS] ", "").replace("[レア] ", "");
     state.achievements.kills[baseName] = (state.achievements.kills[baseName] || 0) + 1; state.achievements.totalKills++;
+    // Casino countdown
+    if (state.casino.phase === 'waiting' && state.casino.battlesLeft > 0) {
+        state.casino.battlesLeft--;
+        if (state.casino.battlesLeft <= 0) {
+            state.casino.phase = 'ready';
+            logMessage('🎰 ミームコインの結果が出ました！カジノタブで精算してください。', 'loot');
+        }
+    }
     let expG = Math.floor(10 * Math.pow(1.03, state.floor)); let goldG = Math.floor(5 * Math.pow(1.03, state.floor));
     if (currentEnemy.isBoss) { expG *= 3; goldG *= 3; state.achievements.total_boss_kills++; }
     state.hero.exp += expG; state.hero.classExp[state.hero.classId] += expG; state.gold += goldG;
@@ -610,7 +619,7 @@ function updateAllUI() {
     document.getElementById("current-floor").innerText = state.floor;
     document.getElementById("gold-amount").innerText = state.gold;
     document.getElementById("kamui-amount").innerText = state.kamui;
-    updateStatusUI(); updateEquipmentUI(); updateInventoryUI(); updatePartyUI(); updateKamuiUI(); updateBattleControls(); updateEnemyHP();
+    updateStatusUI(); updateEquipmentUI(); updateInventoryUI(); updatePartyUI(); updateKamuiUI(); updateCasinoUI(); updateBattleControls(); updateEnemyHP();
     drawPassiveBoard();
 }
 
@@ -1101,6 +1110,131 @@ function switchDungeon(type) {
     state.floor = 1; currentEnemy = null; updateAllUI(); startBattle(); saveGame();
 }
 
+// --- Casino System ---
+
+const MEME_COIN_NAMES = [
+    'KONBU', 'SLIME', 'DOGE', 'PEPE', 'NEKO', 'SUSHI', 'SAKE', 'RAMEN',
+    'NINJA', 'SAMURAI', 'TANUKI', 'KAPPA', 'MOCHI', 'MATCHA', 'WASABI',
+    'BONSAI', 'SUMO', 'KAIJU', 'ONIGIRI', 'TAKOYAKI'
+];
+
+function generateCasinoRound() {
+    const names = [...MEME_COIN_NAMES].sort(() => Math.random() - 0.5).slice(0, 10);
+    const cost = Math.max(100, Math.floor(state.floor * 10));
+
+    // 2-3 winners, total multiplier sum 5~7.5 (so buying all 10 = 0.5~0.75x)
+    const winnerCount = randomInt(2, 3);
+    const winnerSet = new Set();
+    while (winnerSet.size < winnerCount) winnerSet.add(randomInt(0, 9));
+    const budget = 5 + Math.random() * 2.5;
+    const shares = [...winnerSet].map(() => 0.5 + Math.random());
+    const shareSum = shares.reduce((a, b) => a + b, 0);
+
+    const coins = names.map((n, i) => ({
+        name: `$${n}`, cost, multiplier: 0, invested: 0
+    }));
+    [...winnerSet].forEach((idx, i) => {
+        coins[idx].multiplier = parseFloat((budget * shares[i] / shareSum).toFixed(1));
+    });
+
+    state.casino = { coins, battlesLeft: 10, phase: 'buying', totalInvested: 0 };
+    saveGame();
+}
+
+function buyCoin(idx) {
+    if (state.casino.phase !== 'buying') return;
+    const coin = state.casino.coins[idx];
+    if (state.gold < coin.cost) { alert('ゴールドが足りません！'); return; }
+    state.gold -= coin.cost;
+    coin.invested += coin.cost;
+    state.casino.totalInvested += coin.cost;
+    updateAllUI(); saveGame();
+}
+
+function startCasinoWait() {
+    if (state.casino.phase !== 'buying' || state.casino.totalInvested === 0) {
+        alert('最低1枚はコインを購入してください！'); return;
+    }
+    state.casino.phase = 'waiting';
+    logMessage('🎰 ミームコイン購入完了！10戦後に結果が出ます！', 'system');
+    updateAllUI(); saveGame();
+}
+
+function settleCasino() {
+    if (state.casino.phase !== 'ready') return;
+    let totalReturn = 0;
+    const results = state.casino.coins.filter(c => c.invested > 0).map(c => {
+        const ret = Math.floor(c.invested * c.multiplier);
+        totalReturn += ret;
+        return { name: c.name, invested: c.invested, mult: c.multiplier, ret };
+    });
+    state.gold += totalReturn;
+    state.casino.phase = 'settled';
+
+    // Build result HTML
+    const resultEl = document.getElementById('casino-result');
+    if (resultEl) {
+        let html = '<h4>📊 結果発表</h4>';
+        results.forEach(r => {
+            const color = r.mult > 0 ? 'var(--success-color)' : 'var(--danger-color)';
+            const icon = r.mult > 0 ? '🚀' : '💥';
+            html += `<div class="stat-item mt-1"><span>${icon} ${r.name}</span><span style="color:${color}">${r.mult > 0 ? r.mult + 'x' : '暴落'} (${r.ret}G)</span></div>`;
+        });
+        const diff = totalReturn - state.casino.totalInvested;
+        const diffColor = diff >= 0 ? 'var(--success-color)' : 'var(--danger-color)';
+        html += `<div class="mt-1" style="border-top:1px solid rgba(255,255,255,0.1); padding-top:0.5rem">`;
+        html += `<div>投資総額: ${state.casino.totalInvested}G</div>`;
+        html += `<div>リターン: <strong style="color:${diffColor}">${totalReturn}G (${diff >= 0 ? '+' : ''}${diff}G)</strong></div></div>`;
+        resultEl.innerHTML = html;
+        resultEl.classList.remove('hidden');
+    }
+    updateAllUI(); saveGame();
+}
+
+function updateCasinoUI() {
+    const coinsEl = document.getElementById('casino-coins');
+    const statusEl = document.getElementById('casino-status');
+    const newBtn = document.getElementById('btn-casino-new');
+    const settleBtn = document.getElementById('btn-casino-settle');
+    const resultEl = document.getElementById('casino-result');
+    if (!coinsEl) return;
+
+    const { phase, coins, battlesLeft, totalInvested } = state.casino;
+
+    if (phase === 'idle' || phase === 'settled') {
+        statusEl.innerHTML = '「新ラウンド」でコインが生成されます';
+        newBtn.classList.remove('hidden'); settleBtn.classList.add('hidden');
+        if (phase === 'idle') { coinsEl.innerHTML = ''; resultEl.classList.add('hidden'); }
+        return;
+    }
+
+    newBtn.classList.add('hidden');
+    settleBtn.classList.toggle('hidden', phase !== 'ready');
+
+    if (phase === 'buying') {
+        statusEl.innerHTML = `コインを購入してください（投資総額: ${totalInvested}G）<br><button class="btn btn-sm" onclick="startCasinoWait()">購入完了 → ダンジョンへ</button>`;
+    } else if (phase === 'waiting') {
+        statusEl.innerHTML = `⚔️ 残り${battlesLeft}戦で結果が出ます（投資: ${totalInvested}G）`;
+    } else if (phase === 'ready') {
+        statusEl.innerHTML = `🎉 結果が出ました！「精算する」を押してください`;
+    }
+
+    coinsEl.innerHTML = '';
+    coins.forEach((c, i) => {
+        const d = document.createElement('div'); d.className = 'stat-item mt-1';
+        const revealed = (phase === 'ready' || phase === 'settled');
+        const icon = revealed ? (c.multiplier > 0 ? '🚀' : '💥') : '🪙';
+        const multText = revealed ? (c.multiplier > 0 ? `<span style="color:var(--success-color)">${c.multiplier}x</span>` : '<span style="color:var(--danger-color)">暴落</span>') : '???';
+        d.innerHTML = `<span>${icon} ${c.name} <small>(${c.cost}G)</small> ${c.invested > 0 ? `[保有:${c.invested}G]` : ''} ${multText}</span>`;
+        if (phase === 'buying') {
+            const btn = document.createElement('button'); btn.className = 'btn-sm'; btn.innerText = '購入';
+            btn.onclick = () => buyCoin(i);
+            d.appendChild(btn);
+        }
+        coinsEl.appendChild(d);
+    });
+}
+
 function sellFiltered(filterFn, label) {
     let sold = 0, gain = 0;
     state.inventory = state.inventory.filter(i => {
@@ -1226,6 +1360,8 @@ document.addEventListener("DOMContentLoaded", () => {
             sellFiltered(i => i.type !== 'rune' && state.equipment[i.type] && totalStats(i) < totalStats(state.equipment[i.type]), "");
         },
         "btn-sell-all":          () => sellFiltered(i => i.type !== 'rune' && i.rarity && i.rarity.name === 'コモン', "コモン"),
+        "btn-casino-new":        generateCasinoRound,
+        "btn-casino-settle":     settleCasino,
     };
     for (const [id, fn] of Object.entries(buttons)) setClick(id, fn);
 
