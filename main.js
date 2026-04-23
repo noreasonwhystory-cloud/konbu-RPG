@@ -534,7 +534,12 @@ function updateEnemyHP() {
     if (isNaN(currentEnemy.hp)) currentEnemy.hp = 0;
     const p = Math.max(0, (currentEnemy.hp / currentEnemy.maxHp) * 100);
     const bar = document.getElementById("enemy-hp-bar"); if (bar) bar.style.width = `${p}%`;
-    document.getElementById("enemy-name").innerText = currentEnemy.name;
+    
+    const nameEl = document.getElementById("enemy-name");
+    nameEl.innerText = currentEnemy.name;
+    const elemInfo = ELEMENTS[currentEnemy.element || 'none'];
+    nameEl.style.color = elemInfo.color;
+    
     const img = document.getElementById("enemy-sprite");
     if (img) img.src = `assets/${currentEnemy.image || 'slime.png'}`;
 }
@@ -813,8 +818,20 @@ function refreshTavern() {
 function startBattle() {
     if (canProceed) return;
     if (!currentEnemy) {
-        const t = ENEMY_TYPES[randomInt(0, ENEMY_TYPES.length - 1)]; const m = Math.pow(1.03, state.floor - 1);
-        currentEnemy = { ...t, maxHp: Math.floor(30 * t.hpMult * m), hp: Math.floor(30 * t.hpMult * m), atk: Math.floor(8 * t.atkMult * m), def: Math.floor(3 * t.defMult * m), isBoss: state.floor%10===0 };
+        const t = ENEMY_TYPES[randomInt(0, ENEMY_TYPES.length - 1)]; 
+        const m = Math.pow(1.03, state.floor - 1);
+        const elemKeys = Object.keys(ELEMENTS);
+        const randElem = elemKeys[randomInt(0, elemKeys.length - 1)];
+        
+        currentEnemy = { 
+            ...t, 
+            maxHp: Math.floor(30 * t.hpMult * m), 
+            hp: Math.floor(30 * t.hpMult * m), 
+            atk: Math.floor(8 * t.atkMult * m), 
+            def: Math.floor(3 * t.defMult * m), 
+            isBoss: state.floor % 10 === 0,
+            element: randElem
+        };
     }
     if (!battleInterval) battleInterval = setInterval(() => { if (state.isAutoMode && canProceed) nextFloor(); if (state.isAutoMode && !isActing && !canProceed) executeAttack(); }, 1000);
     updateAllUI();
