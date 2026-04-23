@@ -27,7 +27,7 @@ const getInitialState = () => ({
         classLevels: { novice: 1, warrior: 1, knight: 1, berserker: 1, thief: 1, assassin: 1, samurai: 1, hero: 1 },
         classExp: { novice: 0, warrior: 0, knight: 0, berserker: 0, thief: 0, assassin: 0, samurai: 0, hero: 0 }
     },
-    equipment: { weapon: null, armor: null, accessory: null },
+    equipment: { weapon: null, head: null, body: null, hands: null, feet: null, accessory: null },
     inventory: [], maxInventory: 50,
     party: [],
     kamuiUpgrades: { expBonus: 0, goldBonus: 0, dropRateBonus: 0, statsBonus: 0 },
@@ -268,7 +268,16 @@ function deepMerge(target, source) {
 }
 function loadGame() {
     const saved = localStorage.getItem(SAVE_KEY);
-    if (saved) { try { state = deepMerge(getInitialState(), JSON.parse(saved)); } catch (e) { state = getInitialState(); } }
+    if (saved) { 
+        try { 
+            state = deepMerge(getInitialState(), JSON.parse(saved)); 
+            // Migration for old armor slot
+            if (state.equipment.armor) {
+                state.equipment.body = state.equipment.armor;
+                delete state.equipment.armor;
+            }
+        } catch (e) { state = getInitialState(); } 
+    }
     refreshTavern(); updateAllUI();
 }
 
@@ -402,8 +411,8 @@ function enemyTurn() {
     const stats = getHeroTotalStats();
     if (Math.random() < stats.avoid) { logMessage("回避！"); isActing = false; updateBattleControls(); return; }
     const heroClass = CLASSES[state.hero.classId] || CLASSES.novice;
-    const defenseElem = (state.equipment.armor && state.equipment.armor.element !== 'none') 
-                        ? state.equipment.armor.element 
+    const defenseElem = (state.equipment.body && state.equipment.body.element !== 'none') 
+                        ? state.equipment.body.element 
                         : (heroClass.element || 'none');
     const eMult = getElementMult(currentEnemy.element, defenseElem);
     let d = Math.max(1, Math.floor(currentEnemy.atk * eMult - stats.def*0.5) + randomInt(-2, 2));
@@ -462,7 +471,15 @@ function generateLoot(fl) {
         item.atk = fl * 5; 
     }
     else if (type === 'armor') { 
-        item.name = ["鎧", "盾", "法衣", "兜"][randomInt(0, 3)];
+        const subs = [
+            { id: 'head', n: ["兜", "帽子", "サークレット"][randomInt(0, 2)] },
+            { id: 'body', n: ["鎧", "法衣", "軽装甲"][randomInt(0, 2)] },
+            { id: 'hands', n: ["手袋", "篭手", "バングル"][randomInt(0, 2)] },
+            { id: 'feet', n: ["靴", "具足", "レギンス"][randomInt(0, 2)] }
+        ];
+        const s = subs[randomInt(0, 3)];
+        item.armorType = s.id;
+        item.name = s.n;
         item.def = fl * 2; 
     } 
     else { 
@@ -612,8 +629,9 @@ function updateInventoryUI() {
 }
 
 function updateEquipmentUI() {
-    ['weapon', 'armor', 'accessory'].forEach(type => {
+    ['weapon', 'head', 'body', 'hands', 'feet', 'accessory'].forEach(type => {
         const i = state.equipment[type]; const el = document.getElementById(`equip-${type}`);
+        if (!el) return;
         if (i) { 
             const fullName = `${i.prefix}の${i.name} +${i.lvl}`;
             el.querySelector('.slot-item').innerText = fullName; 
@@ -950,8 +968,9 @@ function handleEquipItem() {
     if (!selectedItemSource || selectedItemSource.isEquipped) return;
     const idx = selectedItemSource.val;
     const item = state.inventory[idx];
-    if (state.equipment[item.type]) state.inventory.push(state.equipment[item.type]);
-    state.equipment[item.type] = item;
+    const slot = (item.type === 'armor') ? item.armorType : item.type;
+    if (state.equipment[slot]) state.inventory.push(state.equipment[slot]);
+    state.equipment[slot] = item;
     state.inventory.splice(idx, 1);
     closeItemModal(); updateAllUI(); saveGame();
 }
