@@ -32,6 +32,8 @@ const getInitialState = () => ({
     party: [],
     kamuiUpgrades: { expBonus: 0, goldBonus: 0, dropRateBonus: 0, statsBonus: 0 },
     currentDungeon: 'normal', // 'normal' or 'rune'
+    passivePoints: 0,
+    unlockedNodes: [],
     achievements: { 
         kills: {}, totalKills: 0, total_loot: 0, loot_rare: 0, loot_epic: 0, loot_legendary: 0,
         gold_spent: 0, prestige_count: 0, total_boss_kills: 0, refine_count: 0, total_hired: 0,
@@ -213,6 +215,22 @@ const RUNES = [
     { id: 'r_gold', name: '富の魂武', bonus: { goldPct: 0.1 }, color: '#fbbf24' }
 ];
 
+const WEAPON_TYPES = [
+    { id: 'sword', name: '剣', bonus: { crit: 0.1, atkPct: 0.05 }, desc: 'クリティカル率+10% / ATK+5%' },
+    { id: 'axe', name: '斧', bonus: { atkPct: 0.25, defPct: -0.2 }, desc: 'ATK+25% / DEF-20%' },
+    { id: 'bow', name: '弓', bonus: { avoid: 0.1, atkPct: 0.05 }, desc: '回避率+10% / ATK+5%' },
+    { id: 'staff', name: '杖', bonus: { skillDmg: 0.2, hpPct: 0.1 }, desc: '特技威力+20% / HP+10%' }
+];
+
+const PASSIVE_NODES = [
+    { id: 'start', name: '起点', pos: { x: 0, y: 0 }, effect: { atk: 5 }, cost: 0, req: [] },
+    { id: 'atk_1', name: '腕力 I', pos: { x: 1, y: 0 }, effect: { atkPct: 0.03 }, cost: 1, req: ['start'] },
+    { id: 'def_1', name: '忍耐 I', pos: { x: 0, y: 1 }, effect: { defPct: 0.03 }, cost: 1, req: ['start'] },
+    { id: 'hp_1', name: '生命 I', pos: { x: -1, y: 0 }, effect: { hpPct: 0.05 }, cost: 1, req: ['start'] },
+    { id: 'crit_1', name: '集中 I', pos: { x: 2, y: 0 }, effect: { crit: 0.05 }, cost: 2, req: ['atk_1'] },
+    { id: 'keystone_meteor', name: '流星の啓示', pos: { x: 3, y: 0 }, effect: { meteor: true }, cost: 5, req: ['crit_1'], isKeystone: true, desc: '攻撃時に5%でメテオが降り注ぎ、攻撃力の5倍のダメージを与える。' }
+];
+
 // --- Core ---
 
 function saveGame() { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
@@ -291,6 +309,17 @@ function getHeroTotalStats() {
         const i = state.equipment[key];
         if (i) { 
             if (i.atk) atk += i.atk; if (i.def) def += i.def; if (i.hp) maxHp += i.hp;
+            
+            // Weapon Mastery
+            if (key === 'weapon' && i.weaponType) {
+                const m = WEAPON_TYPES.find(w => w.id === i.weaponType);
+                if (m && m.bonus) {
+                    if (m.bonus.atkPct) atk *= (1 + m.bonus.atkPct);
+                    if (m.bonus.defPct) def *= (1 + m.bonus.defPct);
+                    if (m.bonus.hpPct) maxHp *= (1 + m.bonus.hpPct);
+                }
+            }
+
             if (i.options) i.options.forEach(opt => {
                 if (opt.type === 'atk') atk += opt.val;
                 if (opt.type === 'def') def += opt.val;
@@ -310,12 +339,31 @@ function getHeroTotalStats() {
         }
     }
 
+    // Apply Passives
+    state.unlockedNodes.forEach(nid => {
+        const n = PASSIVE_NODES.find(nx => nx.id === nid);
+        if (n && n.effect) {
+            if (n.effect.atk) atk += n.effect.atk;
+            if (n.effect.atkPct) atk *= (1 + n.effect.atkPct);
+            if (n.effect.defPct) def *= (1 + n.effect.defPct);
+            if (n.effect.hpPct) maxHp *= (1 + n.effect.hpPct);
+            if (n.effect.crit) crit += n.effect.crit;
+            if (n.effect.avoid) avoid += n.effect.avoid;
+        }
+    });
+
     // Set Bonus: 3 pieces of same prefix
     for (let p in setCounts) {
         if (setCounts[p] >= 3) { atk *= 1.2; def *= 1.2; maxHp *= 1.2; }
     }
 
-    return { atk: Math.floor(atk), def: Math.floor(def), maxHp: Math.floor(maxHp) };
+    return { 
+        atk: Math.floor(atk), 
+        def: Math.floor(def), 
+        maxHp: Math.floor(maxHp),
+        crit: Math.min(0.8, crit),
+        avoid: Math.min(0.8, avoid)
+    };
 }
 
 function updateHeroHP(amount) {
@@ -347,17 +395,39 @@ function executeAttack(multiplier = 1, isSkill = false) {
     isActing = true; updateBattleControls();
     const stats = getHeroTotalStats();
     
+    // Crit check
+    let isCrit = false;
+    let baseDmg = stats.atk;
+    if (Math.random() < stats.crit) {
+        baseDmg *= 2;
+        isCrit = true;
+    }
+
     // Element Bonus
     const heroElem = state.equipment.weapon ? state.equipment.weapon.element : 'none';
     const eMult = getElementMult(heroElem, currentEnemy.element);
     
-    let dmg = Math.max(1, Math.floor((stats.atk * eMult - currentEnemy.def) * multiplier) + randomInt(-2, 2));
+    let dmg = Math.max(1, Math.floor((baseDmg * eMult - currentEnemy.def) * multiplier) + randomInt(-2, 2));
     currentEnemy.hp -= dmg;
     
     const heroEl = document.querySelector(".hero");
     if (heroEl) { heroEl.classList.remove("attack-anim-hero"); void heroEl.offsetWidth; heroEl.classList.add("attack-anim-hero"); }
     
+    if (isCrit) logMessage("クリティカルヒット！！", "loot");
     logMessage(`${isSkill ? '特技！' : ''}勇者の攻撃！ ${dmg}ダメージ` + (eMult > 1 ? " (弱点!)" : (eMult < 1 ? " (耐性...)" : "")));
+
+    // Meteor Keystone check
+    if (state.unlockedNodes.includes('keystone_meteor') && Math.random() < 0.05) {
+        const mDmg = stats.atk * 5;
+        currentEnemy.hp -= mDmg;
+        logMessage(`流星群！ メテオが激突！ ${mDmg}ダメージ`, "loot");
+        const scene = document.querySelector(".battle-scene");
+        if (scene) {
+            const m = document.createElement("div"); m.className = "meteor-anim"; scene.appendChild(m);
+            setTimeout(() => { if(m.parentNode) m.parentNode.removeChild(m); }, 1000);
+        }
+    }
+
     updateEnemyHP();
 
     if (currentEnemy.hp <= 0) {
@@ -377,6 +447,13 @@ function executeAttack(multiplier = 1, isSkill = false) {
 function enemyTurn() {
     if (!currentEnemy || currentEnemy.hp <= 0 || canProceed) { isActing = false; updateBattleControls(); return; }
     const stats = getHeroTotalStats();
+
+    // Avoid check
+    if (Math.random() < stats.avoid) {
+        logMessage("勇者は攻撃を回避した！", "system");
+        isActing = false; updateBattleControls();
+        return;
+    }
     
     // Enemy Element Bonus
     const heroElem = state.equipment.armor ? state.equipment.armor.element : 'none';
@@ -441,8 +518,8 @@ function generateRune() {
 function checkLevelUp() {
     while (state.hero.exp >= state.hero.nextExp) {
         state.hero.level++; state.hero.exp -= state.hero.nextExp; state.hero.nextExp = Math.floor(state.hero.nextExp * 1.5);
-        state.hero.baseAtk += 2; state.hero.baseDef += 1; state.hero.maxHp += 10;
-        logMessage(`総合レベルUP！ Lv.${state.hero.level}`, "system");
+        state.passivePoints++;
+        logMessage(`総合レベルUP！ Lv.${state.hero.level} (パッシブポイント+1)`, "system");
     }
     const cid = state.hero.classId;
     let nCE = 20 * Math.pow(1.3, state.hero.classLevels[cid] - 1);
@@ -533,6 +610,11 @@ function generateLoot(floor) {
         id: Date.now() + randomInt(0,999), type, rarity: rar, lvl: fl, prefix: p, element: elem, 
         name: `[Lv.${fl}] ${p}${baseName}`, options: [], sockets: [], socketCount: randomInt(0, 3) 
     };
+    if (type === 'weapon') {
+        const wType = WEAPON_TYPES[randomInt(0, WEAPON_TYPES.length - 1)];
+        i.weaponType = wType.id;
+        i.name = i.name.replace(baseName, `${wType.name}(${baseName})`);
+    }
     for(let s=0; s<i.socketCount; s++) i.sockets.push(null);
     
     // Generate base stat
@@ -578,6 +660,7 @@ function refreshTavern() {
 function updateAllUI() {
     updateClassSelectorUI();
     updateHeaderUI(); updateStatusUI(); updateEquipmentUI(); updateInventoryUI(); updatePartyUI(); updateKamuiUI(); updateBattleControls(); updateEnemyHP();
+    updatePassiveBoardUI();
     // Update Hero Sprite (Always use hero.png as per user request)
     const heroSprite = document.getElementById("hero-sprite");
     if (heroSprite) heroSprite.src = "assets/hero.png";
@@ -618,6 +701,64 @@ function updateBattleControls() {
     else { proceedCtrl.classList.add("hidden"); if (!state.isAutoMode) { manualCtrl.classList.remove("hidden"); const a=document.getElementById("btn-attack"); if(a) a.disabled=isActing; const s=document.getElementById("btn-open-skills"); if(s) s.disabled=isActing; } else manualCtrl.classList.add("hidden"); }
 }
 
+function updatePassiveBoardUI() {
+    const board = document.getElementById("passive-board");
+    if (!board) return;
+    const pointEl = document.getElementById("passive-points-count");
+    if (pointEl) pointEl.innerText = state.passivePoints;
+    
+    board.innerHTML = "";
+    PASSIVE_NODES.forEach(n => {
+        const div = document.createElement("div");
+        const unlocked = state.unlockedNodes.includes(n.id);
+        const canUnlock = state.passivePoints >= n.cost && (n.req.length === 0 || n.req.some(r => state.unlockedNodes.includes(r)));
+        
+        div.className = `passive-node ${unlocked ? 'unlocked' : (canUnlock ? 'available' : 'locked')} ${n.isKeystone ? 'keystone' : ''}`;
+        div.style.left = `calc(50% + ${n.pos.x * 80}px)`;
+        div.style.top = `calc(50% + ${n.pos.y * 80}px)`;
+        div.title = `${n.name}\n${n.desc || ""}\nCost: ${n.cost}`;
+        
+        if (canUnlock && !unlocked) {
+            div.onclick = () => unlockNode(n.id);
+        }
+        
+        const span = document.createElement("span");
+        span.innerText = n.name;
+        div.appendChild(span);
+        board.appendChild(div);
+
+        // Draw lines to requirements
+        n.req.forEach(reqId => {
+            const reqNode = PASSIVE_NODES.find(nx => nx.id === reqId);
+            if (reqNode) {
+                const line = document.createElement("div");
+                line.className = `passive-line ${unlocked && state.unlockedNodes.includes(reqId) ? 'active' : ''}`;
+                // Simplified line drawing for grid
+                const dx = (n.pos.x - reqNode.pos.x) * 80;
+                const dy = (n.pos.y - reqNode.pos.y) * 80;
+                const length = Math.sqrt(dx*dx + dy*dy);
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                
+                line.style.width = `${length}px`;
+                line.style.left = `calc(50% + ${reqNode.pos.x * 80 + 20}px)`;
+                line.style.top = `calc(50% + ${reqNode.pos.y * 80 + 20}px)`;
+                line.style.transform = `rotate(${angle}deg)`;
+                board.appendChild(line);
+            }
+        });
+    });
+}
+
+function unlockNode(nodeId) {
+    const n = PASSIVE_NODES.find(nx => nx.id === nodeId);
+    if (state.passivePoints >= n.cost) {
+        state.passivePoints -= n.cost;
+        state.unlockedNodes.push(nodeId);
+        updateAllUI(); saveGame();
+        logMessage(`${n.name} を解放しました！`, "system");
+    }
+}
+
 function updateStatusUI() {
     const stats = getHeroTotalStats(); const cid = state.hero.classId; const c = CLASSES[cid] || CLASSES.novice;
     const lvlEl = document.getElementById("hero-level");
@@ -627,6 +768,10 @@ function updateStatusUI() {
     document.getElementById("hero-max-hp").innerText = stats.maxHp;
     document.getElementById("hero-atk").innerText = stats.atk;
     document.getElementById("hero-def").innerText = stats.def;
+    
+    const critEl = document.getElementById("hero-crit"); if (critEl) critEl.innerText = (stats.crit * 100).toFixed(1) + "%";
+    const avoidEl = document.getElementById("hero-avoid"); if (avoidEl) avoidEl.innerText = (stats.avoid * 100).toFixed(1) + "%";
+
     
     // Calculate Title/Achievement requirements for "now" (ones that depend on current state, not historical)
     const checkReq = (t) => {
