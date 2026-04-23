@@ -244,7 +244,7 @@ function executeAttack(multiplier = 1, isSkill = false) {
         state.party.forEach(m => { if (currentEnemy && currentEnemy.hp > 0) { let d = Math.max(1, m.atk - currentEnemy.def*0.5); currentEnemy.hp -= d; logMessage(`${m.name}の追撃！ ${d}ダメージ`, "merc"); } });
         updateEnemyHP();
         if (currentEnemy.hp <= 0) onEnemyDefeated();
-        else if (!state.isAutoMode) setTimeout(enemyTurn, 600);
+        else setTimeout(enemyTurn, 600);
     }
 }
 
@@ -260,6 +260,7 @@ function enemyTurn() {
 }
 
 function onEnemyDefeated() {
+    isActing = false;
     canProceed = true; logMessage(`${currentEnemy.name} 撃破！`, "system");
     const baseName = currentEnemy.name.replace("[BOSS] ", "").replace("[レア] ", "");
     state.achievements.kills[baseName] = (state.achievements.kills[baseName] || 0) + 1; state.achievements.totalKills++;
