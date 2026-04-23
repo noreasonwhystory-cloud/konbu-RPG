@@ -504,6 +504,21 @@ function openItemModal(val, isEquipped) {
         d.innerHTML = `<span>${o.type}: ${o.val}</span><button class="btn-sm" onclick="window.rerollOption('${val}', ${isEquipped}, ${idx})">再抽選</button>`;
         opts.appendChild(d);
     });
+    
+    const socks = document.getElementById("modal-item-sockets"); socks.innerHTML = "";
+    if (item.socketCount > 0) {
+        socks.innerHTML = "<h4>ソケット:</h4>";
+        item.sockets.forEach((sId, sIdx) => {
+            const d = document.createElement("div"); d.className = "stat-item mt-1";
+            if (sId) {
+                const rune = RUNES.find(r => r.id === sId);
+                d.innerHTML = `<span>${rune ? rune.name : '不明'}</span><button class="btn-sm" onclick="window.removeRune('${val}', ${isEquipped}, ${sIdx})">外す</button>`;
+            } else {
+                d.innerHTML = `<span>空きソケット</span><button class="btn-sm" onclick="window.openRuneSelect('${val}', ${isEquipped}, ${sIdx})">装着</button>`;
+            }
+            socks.appendChild(d);
+        });
+    }
 }
 function closeItemModal() { document.getElementById("item-modal").classList.add("hidden"); }
 
@@ -535,6 +550,36 @@ window.dismissMercenary = (i) => { state.party.splice(i, 1); updateAllUI(); save
 window.buyKamuiUpgrade = (k) => { if (state.kamui >= 1) { state.kamui -= 1; state.kamuiUpgrades[k]++; updateAllUI(); saveGame(); } };
 window.rerollOption = (val, isEquipped, idx) => { const item = isEquipped ? state.equipment[val] : state.inventory[val]; if (state.gold >= 100) { state.gold -= 100; item.options[idx].val = randomInt(1, 10); updateAllUI(); openItemModal(val, isEquipped); saveGame(); } };
 
+let selectedSocket = null;
+window.removeRune = (val, isEquipped, sIdx) => {
+    const item = isEquipped ? state.equipment[val] : state.inventory[val];
+    const rId = item.sockets[sIdx];
+    const rune = RUNES.find(r => r.id === rId);
+    if (rune) state.inventory.push({...rune, type: 'rune'});
+    item.sockets[sIdx] = null;
+    updateAllUI(); openItemModal(val, isEquipped); saveGame();
+};
+window.openRuneSelect = (val, isEquipped, sIdx) => {
+    selectedSocket = { val, isEquipped, sIdx };
+    const list = document.getElementById("rune-select-list"); list.innerHTML = "";
+    state.inventory.forEach((i, idx) => {
+        if (i.type === 'rune') {
+            const d = document.createElement("div"); d.className = "stat-item mt-1";
+            d.innerHTML = `<span>${i.name}</span><button class="btn-sm" onclick="window.equipRune(${idx})">装着</button>`;
+            list.appendChild(d);
+        }
+    });
+    document.getElementById("rune-modal").classList.remove("hidden");
+};
+window.equipRune = (invIdx) => {
+    if (!selectedSocket) return;
+    const item = selectedSocket.isEquipped ? state.equipment[selectedSocket.val] : state.inventory[selectedSocket.val];
+    const rune = state.inventory[invIdx];
+    item.sockets[selectedSocket.sIdx] = rune.id;
+    state.inventory.splice(invIdx, 1);
+    document.getElementById("rune-modal").classList.add("hidden");
+    updateAllUI(); openItemModal(selectedSocket.val, selectedSocket.isEquipped); saveGame();
+};
 // --- Init ---
 document.addEventListener("DOMContentLoaded", () => {
     loadGame();
@@ -575,7 +620,11 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("btn-close-skill-modal").onclick = closeSkillModal;
     document.getElementById("btn-next-floor").onclick = nextFloor;
     document.getElementById("btn-close-modal").onclick = closeItemModal;
+    document.getElementById("btn-close-rune-modal").onclick = () => document.getElementById("rune-modal").classList.add("hidden");
     document.getElementById("hero-class-select").onchange = (e) => { state.hero.classId = e.target.value; updateAllUI(); saveGame(); };
+    
+    document.getElementById("btn-save-game").onclick = () => { saveGame(); alert("セーブしました"); };
+    document.getElementById("btn-reset-game").onclick = () => { if(confirm("本当にデータを初期化しますか？")) { localStorage.removeItem(SAVE_KEY); location.reload(); } };
     
     document.getElementById("btn-equip-item").onclick = () => {
         if (!selectedItemSource) return;

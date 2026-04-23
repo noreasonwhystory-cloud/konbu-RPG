@@ -36,6 +36,7 @@
                     <button class="tab-btn" data-target="tab-titles">称号</button>
                     <button class="tab-btn" data-target="tab-star">星座</button>
                     <button class="tab-btn" data-target="tab-kamui">神威</button>
+                    <button class="tab-btn" data-target="tab-system">システム</button>
                 </div>
 
                 <div id="tab-status" class="tab-content active">
@@ -87,6 +88,14 @@
                         <p>獲得予定: <span id="kamui-gain-amount">0</span> ✨</p>
                         <button id="btn-prestige" class="btn btn-danger w-100 mt-1">転生する</button>
                         <div id="kamui-upgrades" class="mt-1"></div>
+                    </div>
+                </div>
+
+                <div id="tab-system" class="tab-content">
+                    <div class="status-card">
+                        <h3>システム設定</h3>
+                        <button id="btn-save-game" class="btn btn-gold w-100 mt-1">手動セーブ</button>
+                        <button id="btn-reset-game" class="btn btn-danger w-100 mt-1">データ初期化</button>
                     </div>
                 </div>
             </section>
@@ -168,6 +177,6 @@
         </div>
     </div>
 
-    <script src="main.js?v=2"></script>
+    <script src="main.js?v=3"></script>
 </body>
 </html>
