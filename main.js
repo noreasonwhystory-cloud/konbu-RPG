@@ -108,7 +108,7 @@ const WEAPON_TYPES = [
     { id: 'staff', name: '杖', bonus: { skillDmg: 0.2, hpPct: 0.1 }, desc: 'Skill+20%/HP+10%' }
 ];
 
-const PREFIXES = ["古びた", "鋭い", "丈夫な", "名工の", "伝説の", "神話の", "至高の", "究極の"];
+const PREFIXES = ["古びた", "鋭い", "丈夫な", "名工", "伝説", "神話", "至高", "究極"];
 
 
 const PASSIVE_NODES = [];
@@ -416,7 +416,7 @@ function updateEquipmentUI() {
     ['weapon', 'armor', 'accessory'].forEach(type => {
         const i = state.equipment[type]; const el = document.getElementById(`equip-${type}`);
         if (i) { 
-            const fullName = `${i.prefix ? i.prefix + 'の' : ''}${i.name} +${i.lvl}`;
+            const fullName = `${i.prefix}の${i.name} +${i.lvl}`;
             el.querySelector('.slot-item').innerText = fullName; 
             el.querySelector('.slot-item').className = `slot-item val ${i.rarity.colorClass}`; 
         }
@@ -563,7 +563,7 @@ function openItemModal(val, isEquipped) {
     const item = isEquipped ? state.equipment[val] : state.inventory[val];
     if (!item) return;
     document.getElementById("item-modal").classList.remove("hidden");
-    document.getElementById("modal-item-name").innerText = `${item.prefix ? item.prefix + 'の' : ''}${item.name} ${item.type !== 'rune' ? '+' + (item.lvl || 1) : ''}`;
+    document.getElementById("modal-item-name").innerText = `${item.prefix}の${item.name} ${item.type !== 'rune' ? '+' + (item.lvl || 1) : ''}`;
     document.getElementById("modal-item-name").className = item.rarity ? item.rarity.colorClass : "";
     document.getElementById("modal-item-stats").innerHTML = `Lv.${item.lvl||1}<br>ATK: ${item.atk||0} DEF: ${item.def||0} HP: ${item.hp||0}`;
     
