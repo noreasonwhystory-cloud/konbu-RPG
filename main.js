@@ -275,6 +275,8 @@ function getHeroTotalStats() {
     let atk = state.hero.baseAtk;
     let def = state.hero.baseDef;
     let maxHp = state.hero.maxHp;
+    let crit = 0.05;
+    let avoid = 0.05;
 
     if (state.hero.classLevels) {
         for (let cid in state.hero.classLevels) {
@@ -317,6 +319,8 @@ function getHeroTotalStats() {
                     if (m.bonus.atkPct) atk *= (1 + m.bonus.atkPct);
                     if (m.bonus.defPct) def *= (1 + m.bonus.defPct);
                     if (m.bonus.hpPct) maxHp *= (1 + m.bonus.hpPct);
+                    if (m.bonus.crit) crit += m.bonus.crit;
+                    if (m.bonus.avoid) avoid += m.bonus.avoid;
                 }
             }
 
