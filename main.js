@@ -285,6 +285,7 @@ function getHeroTotalStats() {
     // Apply kamui
     atk *= kamuiMult; def *= kamuiMult; maxHp *= kamuiMult;
 
+    let setCounts = {};
     // Apply Equipment Stats & Runes
     for (const key in state.equipment) {
         const i = state.equipment[key];
