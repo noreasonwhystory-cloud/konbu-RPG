@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>こんぶRPG - 栄光の復活</title>
+    <title>魂武RPG - 星座の導き</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,26 +22,25 @@
                 <button id="btn-dungeon-rune" class="btn-sm">魂武ダンジョン</button>
             </div>
             <div class="class-selector">
-                <label>職業変更:</label>
-                <select id="hero-class-select" class="btn-sm"></select>
+                <label>職:</label>
+                <select id="hero-class-select"></select>
             </div>
         </header>
 
         <main>
-            <!-- Left Panel: Character Stats -->
-            <section id="left-panel" class="panel">
-                <div class="tabs">
-                    <button class="tab-btn active" data-target="tab-status">主人公</button>
+            <!-- Left Panel: Character & Tabs -->
+            <section id="status-panel" class="panel">
+                <div class="tab-nav">
+                    <button class="tab-btn active" data-target="tab-status">ステータス</button>
                     <button class="tab-btn" data-target="tab-party">仲間</button>
                     <button class="tab-btn" data-target="tab-titles">称号</button>
-                    <button class="tab-btn" data-target="tab-kamui">神威</button>
                     <button class="tab-btn" data-target="tab-star">星座</button>
-                    <button class="tab-btn" data-target="tab-system">システム</button>
+                    <button class="tab-btn" data-target="tab-kamui">神威</button>
                 </div>
 
                 <div id="tab-status" class="tab-content active">
                     <div class="status-card">
-                        <div id="hero-level" class="level-display">Lv.1</div>
+                        <div id="hero-level" class="level-display">総合Lv.1</div>
                         <div class="stat-grid">
                             <div class="stat-item"><span>HP</span> <span class="val"><span id="hero-hp">0</span> / <span id="hero-max-hp">0</span></span></div>
                             <div class="stat-item"><span>ATK</span> <span id="hero-atk" class="val">0</span></div>
@@ -49,120 +48,74 @@
                             <div class="stat-item"><span>CRI</span> <span id="hero-crit" class="val">0%</span></div>
                             <div class="stat-item"><span>AVO</span> <span id="hero-avoid" class="val">0%</span></div>
                         </div>
-                        <div class="exp-bar-container">
-                            <div class="exp-info">EXP: <span id="hero-exp">0</span> / <span id="hero-next-exp">0</span></div>
-                            <div id="hero-exp-bar" class="exp-bar"></div>
-                        </div>
                     </div>
-                    <div class="equipment-card">
+                    <div class="status-card">
                         <h3>装備中</h3>
-                        <div class="equip-slots">
-                            <div id="equip-weapon" class="slot"><span class="slot-label">武器</span><div class="slot-item">なし</div></div>
-                            <div id="equip-armor" class="slot"><span class="slot-label">防具</span><div class="slot-item">なし</div></div>
-                            <div id="equip-accessory" class="slot"><span class="slot-label">装飾</span><div class="slot-item">なし</div></div>
-                        </div>
+                        <div id="equip-weapon" class="stat-item mt-1 clickable"><span>武器</span><span class="slot-item val">なし</span></div>
+                        <div id="equip-armor" class="stat-item mt-1 clickable"><span>鎧</span><span class="slot-item val">なし</span></div>
+                        <div id="equip-accessory" class="stat-item mt-1 clickable"><span>飾</span><span class="slot-item val">なし</span></div>
                     </div>
                 </div>
 
                 <div id="tab-party" class="tab-content">
                     <div class="status-card">
                         <h3>現在の仲間</h3>
-                        <div id="party-list" class="merc-list">
-                            <!-- Mercs -->
-                        </div>
+                        <div id="party-list" class="merc-list"></div>
                     </div>
                     <div class="status-card mt-1">
-                        <h3>酒場 (雇用)</h3>
-                        <div id="tavern-list" class="merc-list">
-                            <!-- Available Mercs -->
-                        </div>
+                        <h3>酒場</h3>
+                        <div id="tavern-list" class="merc-list"></div>
                     </div>
                 </div>
 
                 <div id="tab-titles" class="tab-content">
-                    <div class="status-card">
-                        <h3>称号獲得・装備</h3>
-                        <p class="item-stats">条件を満たすと称号を装備できます。</p>
-                        <div id="title-list" class="merc-list">
-                            <!-- Titles -->
-                        </div>
-                    </div>
-                </div>
-
-                <div id="tab-kamui" class="tab-content">
-                    <div class="kamui-info">
-                        <p>現在の階層に応じた「神威の欠片」を獲得し転生します。</p>
-                        <p class="kamui-gain">獲得予定: <span id="kamui-gain-amount">0</span> ✨</p>
-                        <button id="btn-prestige" class="btn btn-danger w-100 mt-1">転生する</button>
-                    </div>
-                    <h2 class="mt-1">神威強化 (永続)</h2>
-                    <div id="kamui-upgrades"></div>
+                    <div id="title-list" class="merc-list"></div>
                 </div>
 
                 <div id="tab-star" class="tab-content">
                     <div class="star-board-container">
-                        <div class="star-board-header">
-                            <h3>星座盤 (パッシブ)</h3>
-                            <span>ポイント: <span id="passive-points-count">0</span></span>
+                        <div class="star-board-ui">
+                            <div class="board-chip">ポイント: <span id="passive-points-count">0</span></div>
+                            <div class="board-chip">ドラッグで移動 / タップで解放</div>
                         </div>
-                        <div id="passive-board" class="passive-board">
-                            <!-- Nodes drawn by JS -->
-                        </div>
+                        <canvas id="passive-canvas"></canvas>
                     </div>
                 </div>
 
-                <div id="tab-system" class="tab-content">
+                <div id="tab-kamui" class="tab-content">
                     <div class="status-card">
-                        <h3>データ引き継ぎ</h3>
-                        <p class="item-stats">セーブコードをコピーして他の環境へデータを移行できます。</p>
-                        <div class="mt-1">
-                            <button id="btn-export-code" class="btn btn-secondary w-100">セーブコードを発行</button>
-                        </div>
-                        <div class="mt-1">
-                            <textarea id="save-code-area" class="save-code-area" placeholder="ここにコードを貼り付け"></textarea>
-                            <button id="btn-import-code" class="btn btn-primary w-100">コードから読み込む</button>
-                        </div>
-                        <div class="mt-2 pt-1 border-top">
-                            <button id="btn-reset-game" class="btn btn-danger w-100">全データを削除してリセット</button>
-                        </div>
+                        <p>獲得予定: <span id="kamui-gain-amount">0</span> ✨</p>
+                        <button id="btn-prestige" class="btn btn-danger w-100 mt-1">転生する</button>
+                        <div id="kamui-upgrades" class="mt-1"></div>
                     </div>
                 </div>
             </section>
 
-            <!-- Center Panel: Battle Area -->
+            <!-- Center Panel: Battle -->
             <section id="battle-panel" class="panel">
                 <div class="battle-scene">
-                    <div class="combatant-group heroes">
-                        <div class="combatant hero">
-                            <div class="sprite-container"><img id="hero-sprite" src="assets/hero.png" alt="Hero"></div>
-                            <div id="hero-hp-bar-outer" class="hp-bar-container">
-                                <div id="hero-hp-bar" class="hp-bar"></div>
-                            </div>
-                        </div>
-                        <div id="party-visual-list" class="party-visual-list"></div>
+                    <div class="combatant">
+                        <div class="sprite-container"><img id="hero-sprite" src="assets/hero.png" alt="Hero"></div>
+                        <div class="hp-bar-container"><div id="hero-hp-bar" class="hp-bar"></div></div>
                     </div>
                     <div class="vs">VS</div>
-                    <div class="combatant enemy">
+                    <div class="combatant">
                         <div id="enemy-name" class="name">???</div>
                         <div class="sprite-container"><img id="enemy-sprite" src="assets/slime.png" alt="Enemy"></div>
-                        <div class="enemy-hp-text"><span id="enemy-hp">0</span> / <span id="enemy-max-hp">0</span></div>
-                        <div class="hp-bar-container">
-                            <div id="enemy-hp-bar" class="hp-bar"></div>
-                        </div>
+                        <div class="hp-bar-container"><div id="enemy-hp-bar" class="hp-bar"></div></div>
                     </div>
                 </div>
-
                 <div id="battle-controls">
                     <div class="control-row">
-                        <button id="btn-toggle-auto" class="btn active">AUTO: OFF</button>
-                        <button id="btn-retreat" class="btn btn-secondary">撤退</button>
+                        <button id="btn-toggle-auto" class="btn w-100">AUTO: OFF</button>
+                        <button id="btn-retreat" class="btn btn-secondary w-100">撤退</button>
                     </div>
                     <div id="manual-controls" class="control-row">
-                        <button id="btn-attack" class="btn">攻撃</button>
-                        <button id="btn-open-skills" class="btn btn-skill">特技</button>
+                        <button id="btn-attack" class="btn w-100">通常攻撃</button>
+                        <button id="btn-open-skills" class="btn btn-gold w-100">特技</button>
                     </div>
                     <div id="proceed-controls" class="control-row hidden">
-                        <button id="btn-next-floor" class="btn btn-success">次の階層へ進む</button>
+                        <button id="btn-next-floor" class="btn btn-success w-100">次の階層へ</button>
                     </div>
                 </div>
                 <div id="battle-log"></div>
@@ -171,13 +124,12 @@
             <!-- Right Panel: Inventory -->
             <section id="inventory-panel" class="panel">
                 <div class="inventory-header">
-                    <h2>インベントリ</h2>
-                    <span class="capacity"><span id="inv-count">0</span> / 50</span>
+                    <h3>インベントリ (<span id="inv-count">0</span>/50)</h3>
                 </div>
                 <div id="inventory-list"></div>
                 <div class="inventory-actions">
                     <button id="btn-sell-weaker" class="btn btn-secondary w-100 mb-05">弱い装備を売却</button>
-                    <button id="btn-sell-all" class="btn btn-danger w-100">コモンを一括売却</button>
+                    <button id="btn-sell-all" class="btn btn-danger w-100">コモン売却</button>
                 </div>
             </section>
         </main>
@@ -188,35 +140,30 @@
         <div class="modal-content">
             <h3>特技一覧</h3>
             <div id="skill-list" class="skill-list-container"></div>
-            <div class="modal-actions mt-1">
-                <button id="btn-close-skill-modal" class="btn btn-cancel">閉じる</button>
-            </div>
+            <button id="btn-close-skill-modal" class="btn btn-secondary w-100 mt-1">閉じる</button>
         </div>
     </div>
 
     <div id="rune-modal" class="modal hidden">
         <div class="modal-content">
             <h3>魂武装着</h3>
-            <p>装着する魂武を選んでください</p>
             <div id="rune-select-list" class="merc-list"></div>
-            <div class="modal-actions mt-1">
-                <button id="btn-close-rune-modal" class="btn btn-cancel">閉じる</button>
-            </div>
+            <button id="btn-close-rune-modal" class="btn btn-secondary w-100 mt-1">閉じる</button>
         </div>
     </div>
 
     <div id="item-modal" class="modal hidden">
         <div class="modal-content">
             <h2 id="modal-item-name">アイテム名</h2>
-            <div id="modal-item-stats" class="item-stats"></div>
-            <div id="modal-item-options" class="item-options-list"></div>
-            <div id="modal-item-sockets" class="socket-list"></div>
-            <div id="modal-item-compare" class="item-compare"></div>
-            <div class="modal-actions">
-                <button id="btn-refine-item" class="btn btn-gold">強化する</button>
-                <button id="btn-equip-item" class="btn">装備する</button>
-                <button id="btn-sell-item" class="btn btn-secondary">売却する</button>
-                <button id="btn-close-modal" class="btn btn-cancel">閉じる</button>
+            <div id="modal-item-stats" class="status-card mt-1"></div>
+            <div id="modal-item-options" class="mt-1"></div>
+            <div id="modal-item-sockets" class="mt-1"></div>
+            <div id="modal-item-compare" class="mt-1"></div>
+            <div class="modal-actions mt-1">
+                <button id="btn-refine-item" class="btn btn-gold w-100">強化する</button>
+                <button id="btn-equip-item" class="btn w-100">装備する</button>
+                <button id="btn-sell-item" class="btn btn-danger w-100">売却する</button>
+                <button id="btn-close-modal" class="btn btn-secondary w-100">閉じる</button>
             </div>
         </div>
     </div>
