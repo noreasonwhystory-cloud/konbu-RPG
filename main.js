@@ -160,11 +160,21 @@ const RARITIES = [
     { name: 'レジェンダリー', colorClass: 'rarity-legendary', weight: 1, statMult: 8, maxOptions: 4 }
 ];
 
-const RUNES = [
-    { id: 'r_atk', name: '力の魂武', bonus: { atkPct: 0.05 }, color: '#f87171' },
-    { id: 'r_def', name: '守の魂武', bonus: { defPct: 0.05 }, color: '#60a5fa' },
-    { id: 'r_hp', name: '命の魂武', bonus: { hpPct: 0.05 }, color: '#4ade80' }
+const RUNE_BASES = [
+    { id: 'r_atk',  name: '力の魂武', stat: 'atkPct',  base: 0.03, color: '#f87171' },
+    { id: 'r_atk2', name: '剛力の魂武', stat: 'atk',    base: 5,    color: '#fb923c' },
+    { id: 'r_def',  name: '守の魂武', stat: 'defPct',  base: 0.03, color: '#60a5fa' },
+    { id: 'r_def2', name: '堅守の魂武', stat: 'def',    base: 3,    color: '#38bdf8' },
+    { id: 'r_hp',   name: '命の魂武', stat: 'hpPct',   base: 0.04, color: '#4ade80' },
+    { id: 'r_hp2',  name: '活力の魂武', stat: 'hp',     base: 10,   color: '#22c55e' },
+    { id: 'r_cri',  name: '必殺の魂武', stat: 'crit',   base: 0.02, color: '#facc15' },
+    { id: 'r_avo',  name: '風の魂武', stat: 'avoid',  base: 0.02, color: '#a3e635' },
+    { id: 'r_skl',  name: '技の魂武', stat: 'skillDmg', base: 0.05, color: '#c084fc' },
+    { id: 'r_all',  name: '神の魂武', stat: 'statsBonus', base: 0.01, color: '#fbbf24' },
+    { id: 'r_gold', name: '富の魂武', stat: 'goldPct', base: 0.05, color: '#fcd34d' },
+    { id: 'r_drop', name: '宝の魂武', stat: 'dropPct', base: 0.05, color: '#67e8f9' }
 ];
+const RUNES = RUNE_BASES; // alias for compatibility
 
 const WEAPON_TYPES = [
     { id: 'sword', name: '剣', bonus: { crit: 0.1, atkPct: 0.05 }, desc: 'CRI+10%/ATK+5%' },
@@ -338,6 +348,14 @@ function getHeroTotalStats() {
     atk *= currentClass.atkMult * kamuiMult; def *= currentClass.defMult * kamuiMult; maxHp *= currentClass.hpMult * kamuiMult;
 
     let setCounts = {}, rarCounts = {};
+    const applyBonus = (b) => {
+        if (b.atk) atk += b.atk; if (b.atkPct) atk *= (1 + b.atkPct);
+        if (b.def) def += b.def; if (b.defPct) def *= (1 + b.defPct);
+        if (b.hp) maxHp += b.hp; if (b.hpPct) maxHp *= (1 + b.hpPct);
+        if (b.crit) crit += b.crit; if (b.avoid) avoid += b.avoid;
+        if (b.skillDmg) skillDmgMult += b.skillDmg;
+        if (b.statsBonus) { atk *= (1+b.statsBonus); def *= (1+b.statsBonus); maxHp *= (1+b.statsBonus); }
+    };
     for (const key in state.equipment) {
         const i = state.equipment[key];
         if (i) { 
@@ -368,7 +386,16 @@ function getHeroTotalStats() {
                 if (o.id === 'avoid') avoid += o.val;
                 if (o.id === 'skillDmg') skillDmgMult += o.val;
             });
-            (i.sockets || []).forEach(sid => { const r = RUNES.find(rx => rx.id === sid); if (r && r.bonus.atkPct) atk *= (1+r.bonus.atkPct); });
+            (i.sockets || []).forEach(s => {
+                if (!s) return;
+                // s can be a rune id (string) or a full rune object
+                const b = (typeof s === 'object') ? s.bonus : null;
+                if (!b) {
+                    // Legacy: find by id in RUNE_BASES (flat 5%)
+                    const rb = RUNE_BASES.find(rx => rx.id === s);
+                    if (rb) { const fb = { [rb.stat]: rb.base }; applyBonus(fb); }
+                } else { applyBonus(b); }
+            });
             if (i.prefix) setCounts[i.prefix] = (setCounts[i.prefix] || 0) + 1;
             if (i.rarity) rarCounts[i.rarity.name] = (rarCounts[i.rarity.name] || 0) + 1;
         }
@@ -552,9 +579,27 @@ function generateLoot(fl) {
 }
 function generateRune() {
     if (state.inventory.length >= state.maxInventory) return;
-    const r = RUNES[randomInt(0, RUNES.length - 1)]; 
+    const base = RUNE_BASES[randomInt(0, RUNE_BASES.length - 1)];
     const prefObj = PREFIXES[randomInt(0, PREFIXES.length - 1)];
-    state.inventory.push({...r, type: 'rune', prefix: prefObj.name, prefixData: prefObj, value: 100}); 
+    // Rarity selection (same weights as equipment)
+    const roll = randomInt(1, 100);
+    let rar = RARITIES[0], cum = 0;
+    for (const r of RARITIES) { cum += r.weight; if (roll <= cum) { rar = r; break; } }
+    // Scale bonus by floor and rarity
+    const fl = Math.max(1, state.floor);
+    const isPct = base.stat.includes('Pct') || ['crit','avoid','skillDmg','statsBonus'].includes(base.stat);
+    const scaledVal = isPct
+        ? parseFloat((base.base * (1 + fl * 0.02) * rar.statMult).toFixed(3))
+        : Math.floor(base.base * (1 + fl * 0.1) * rar.statMult);
+    const rune = {
+        id: base.id, type: 'rune',
+        name: base.name, color: base.color,
+        rarity: rar, prefix: prefObj.name, prefixData: prefObj,
+        bonus: { [base.stat]: scaledVal },
+        bonusDesc: `${base.stat.toUpperCase()}+${isPct ? (scaledVal*100).toFixed(1)+'%' : scaledVal}`,
+        value: Math.floor(50 * rar.statMult * fl)
+    };
+    state.inventory.push(rune);
     state.achievements.konbu_count++;
 }
 
@@ -1026,7 +1071,9 @@ window.openRuneSelect = (val, isEquipped, sIdx) => {
     state.inventory.forEach((i, idx) => {
         if (i.type === 'rune') {
             const d = document.createElement("div"); d.className = "stat-item mt-1";
-            d.innerHTML = `<span>${i.name}</span><button class="btn-sm" onclick="window.equipRune(${idx})">装着</button>`;
+            const colorClass = i.rarity ? i.rarity.colorClass : '';
+            const desc = i.bonusDesc || '';
+            d.innerHTML = `<span class="${colorClass}">${i.name} <small>${desc}</small></span><button class="btn-sm" onclick="window.equipRune(${idx})">装着</button>`;
             list.appendChild(d);
         }
     });
