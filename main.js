@@ -221,7 +221,7 @@ function deepMerge(target, source) {
     if (!source || typeof source !== 'object') return target;
     for (const key in source) {
         if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-            if (!target[key]) target[key] = {};
+            if (!target[key]) target[key] = (Array.isArray(source[key]) ? [] : {});
             deepMerge(target[key], source[key]);
         } else {
             target[key] = source[key];
@@ -398,6 +398,8 @@ function enemyTurn() {
 }
 
 function onEnemyDefeated() {
+    if (canProceed || !currentEnemy) return;
+    canProceed = true;
     logMessage(`${currentEnemy.name} 撃破！`, "system");
     
     // Track Achievements
@@ -950,8 +952,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const sellW=document.getElementById("btn-sell-weaker"); if(sellW) sellW.onclick = sellWeakerItems;
     const sellA=document.getElementById("btn-sell-all"); if(sellA) sellA.onclick = () => { let g = 0; let n = []; state.inventory.forEach(i => { if (i.rarity.name === 'コモン') g += i.value; else n.push(i); }); if (g > 0) { state.inventory = n; state.gold += g; updateAllUI(); saveGame(); } };
     const clM=document.getElementById("btn-close-modal"); if(clM) clM.onclick = () => { const m=document.getElementById("item-modal"); if(m) m.classList.add("hidden"); };
-    const eqI=document.getElementById("btn-equip-item"); if(eqI) eqI.onclick = () => { const i = state.inventory[selectedItemIndex]; if (state.equipment[i.type]) state.inventory.push(state.equipment[i.type]); state.equipment[i.type] = i; state.inventory.splice(selectedItemIndex, 1); const m=document.getElementById("item-modal"); if(m) m.classList.add("hidden"); updateAllUI(); saveGame(); };
-    const slI=document.getElementById("btn-sell-item"); if(slI) slI.onclick = () => { state.gold += state.inventory[selectedItemIndex].value; state.inventory.splice(selectedItemIndex, 1); const m=document.getElementById("item-modal"); if(m) m.classList.add("hidden"); updateAllUI(); saveGame(); };
+    const eqI=document.getElementById("btn-equip-item"); if(eqI) eqI.onclick = () => { 
+        if (!selectedItemSource || selectedItemSource.isEquipped) return;
+        const val = selectedItemSource.val;
+        const item = state.inventory[val]; 
+        if (state.equipment[item.type]) state.inventory.push(state.equipment[item.type]); 
+        state.equipment[item.type] = item; 
+        state.inventory.splice(val, 1); 
+        const m=document.getElementById("item-modal"); if(m) m.classList.add("hidden"); updateAllUI(); saveGame(); 
+    };
+    const slI=document.getElementById("btn-sell-item"); if(slI) slI.onclick = () => { 
+        if (!selectedItemSource || selectedItemSource.isEquipped) return;
+        const val = selectedItemSource.val;
+        state.gold += state.inventory[val].value; 
+        state.inventory.splice(val, 1); 
+        const m=document.getElementById("item-modal"); if(m) m.classList.add("hidden"); updateAllUI(); saveGame(); 
+    };
     const cSel=document.getElementById("hero-class-select"); if(cSel) cSel.onchange = (e) => { state.hero.classId = e.target.value; updateAllUI(); saveGame(); };
     const prst=document.getElementById("btn-prestige"); if(prst) prst.onclick = doPrestige;
 
