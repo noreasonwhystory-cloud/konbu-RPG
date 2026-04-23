@@ -338,7 +338,10 @@ function executeAttack(multiplier = 1, isSkill = false) {
     const stats = getHeroTotalStats();
     let isCrit = Math.random() < stats.crit;
     let baseDmg = isCrit ? stats.atk * 2 : stats.atk;
-    const heroElem = state.equipment.weapon ? state.equipment.weapon.element : 'none';
+    const heroClass = CLASSES[state.hero.classId] || CLASSES.novice;
+    const heroElem = (state.equipment.weapon && state.equipment.weapon.element !== 'none') 
+                     ? state.equipment.weapon.element 
+                     : (heroClass.element || 'none');
     const eMult = getElementMult(heroElem, currentEnemy.element);
     let dmg = Math.max(1, Math.floor((baseDmg * eMult - currentEnemy.def) * multiplier) + randomInt(-2, 2));
     currentEnemy.hp -= dmg;
@@ -363,7 +366,11 @@ function enemyTurn() {
     if (!currentEnemy || currentEnemy.hp <= 0 || canProceed) { isActing = false; updateBattleControls(); return; }
     const stats = getHeroTotalStats();
     if (Math.random() < stats.avoid) { logMessage("回避！"); isActing = false; updateBattleControls(); return; }
-    const eMult = getElementMult(currentEnemy.element, state.equipment.armor ? state.equipment.armor.element : 'none');
+    const heroClass = CLASSES[state.hero.classId] || CLASSES.novice;
+    const defenseElem = (state.equipment.armor && state.equipment.armor.element !== 'none') 
+                        ? state.equipment.armor.element 
+                        : (heroClass.element || 'none');
+    const eMult = getElementMult(currentEnemy.element, defenseElem);
     let d = Math.max(1, Math.floor(currentEnemy.atk * eMult - stats.def*0.5) + randomInt(-2, 2));
     state.hero.hp -= d; updateHeroHP(0); logMessage(`${currentEnemy.name}の攻撃！ ${d}ダメージ`, "danger");
     if (state.hero.hp <= 0) { logMessage("敗北...", "danger"); state.floor = 1; state.hero.hp = getHeroTotalStats().maxHp; currentEnemy = null; canProceed = false; isActing = false; startBattle(); }
@@ -404,10 +411,14 @@ function generateLoot(fl) {
     }
 
     const pref = PREFIXES[randomInt(0, PREFIXES.length - 1)];
+    const hasElem = Math.random() < 0.2; // 20% chance for elemental gear
+    const elemKeys = Object.keys(ELEMENTS).filter(k => k !== 'none');
     const item = { 
         id: Date.now(), type, rarity: rar, lvl: fl, prefix: pref,
         name: `${rar.name}装備`, 
-        options: [], sockets: [], socketCount: randomInt(0, 3), element: 'none', value: fl * 10 
+        options: [], sockets: [], socketCount: randomInt(0, 3), 
+        element: hasElem ? elemKeys[randomInt(0, elemKeys.length - 1)] : 'none', 
+        value: fl * 10 
     };
     if (type === 'weapon') { 
         const w = WEAPON_TYPES[randomInt(0, 3)]; 
@@ -469,8 +480,24 @@ function updateStatusUI() {
     document.getElementById("hero-max-hp").innerText = stats.maxHp;
     document.getElementById("hero-atk").innerText = stats.atk;
     document.getElementById("hero-def").innerText = stats.def;
-    document.getElementById("hero-crit").innerText = (stats.crit * 100).toFixed(1) + "%";
     document.getElementById("hero-avoid").innerText = (stats.avoid * 100).toFixed(1) + "%";
+    
+    const heroClass = CLASSES[state.hero.classId] || CLASSES.novice;
+    const atkEl = (state.equipment.weapon && state.equipment.weapon.element !== 'none') ? state.equipment.weapon.element : heroClass.element;
+    const defEl = (state.equipment.armor && state.equipment.armor.element !== 'none') ? state.equipment.armor.element : heroClass.element;
+    
+    const atkElemInfo = ELEMENTS[atkEl || 'none'];
+    const defElemInfo = ELEMENTS[defEl || 'none'];
+    
+    const statusBox = document.querySelector("#tab-status .status-card");
+    if (statusBox) {
+        let elemDiv = document.getElementById("hero-elements-display");
+        if (!elemDiv) {
+            elemDiv = document.createElement("div"); elemDiv.id = "hero-elements-display"; elemDiv.className = "mt-1";
+            statusBox.appendChild(elemDiv);
+        }
+        elemDiv.innerHTML = `<div style="font-size:0.7rem; color:var(--text-muted)">属性: <span style="color:${atkElemInfo.color}">攻:${atkElemInfo.name}</span> / <span style="color:${defElemInfo.color}">防:${defElemInfo.name}</span></div>`;
+    }
     
     const tList = document.getElementById("title-list"); if (tList) {
         tList.innerHTML = ""; 
@@ -697,7 +724,8 @@ function openItemModal(val, isEquipped) {
     document.getElementById("item-modal").classList.remove("hidden");
     document.getElementById("modal-item-name").innerText = `${item.prefix}の${item.name} ${item.type !== 'rune' ? '+' + (item.lvl || 1) : ''}`;
     document.getElementById("modal-item-name").className = item.rarity ? item.rarity.colorClass : "";
-    document.getElementById("modal-item-stats").innerHTML = `Lv.${item.lvl||1}<br>ATK: ${item.atk||0} DEF: ${item.def||0} HP: ${item.hp||0}`;
+    const itemElem = ELEMENTS[item.element || 'none'];
+    document.getElementById("modal-item-stats").innerHTML = `Lv.${item.lvl||1} <span style="color:${itemElem.color}">[${itemElem.name}]</span><br>ATK: ${item.atk||0} DEF: ${item.def||0} HP: ${item.hp||0}`;
     
     document.getElementById("btn-equip-item").classList.toggle("hidden", isEquipped || item.type === 'rune');
     const lockBtn = document.getElementById("btn-lock-item");
