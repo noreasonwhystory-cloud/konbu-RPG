@@ -309,7 +309,14 @@ function generateLoot(fl) {
         item.name = w.name; 
         item.atk = fl * 5; 
     }
-    else if (type === 'armor') { item.def = fl * 2; } else { item.hp = fl * 10; }
+    else if (type === 'armor') { 
+        item.name = ["鎧", "盾", "法衣", "兜"][randomInt(0, 3)];
+        item.def = fl * 2; 
+    } 
+    else { 
+        item.name = ["指輪", "首飾り", "耳飾り", "腕輪"][randomInt(0, 3)];
+        item.hp = fl * 10; 
+    }
     for(let s=0; s<item.socketCount; s++) item.sockets.push(null);
     state.inventory.push(item); state.achievements.total_loot++;
 }
