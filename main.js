@@ -113,26 +113,51 @@ const PREFIXES = ["古びた", "鋭い", "丈夫な", "名工", "伝説", "神�
 
 const PASSIVE_NODES = [];
 function generateNodes() {
+    PASSIVE_NODES.length = 0;
     PASSIVE_NODES.push({ id: 'start', name: '起点', pos: { x: 0, y: 0 }, effect: { atk: 5 }, cost: 0, req: [] });
-    const branches = 8; const nodesPerBranch = 124;
+    
+    const branches = 8;
+    const maxTiers = 10;
     const types = [
-        { name: '力', eff: 'atkPct', val: 0.01 }, { name: '守', eff: 'defPct', val: 0.01 },
-        { name: '命', eff: 'hpPct', val: 0.02 }, { name: '技', eff: 'skillDmg', val: 0.02 },
-        { name: '極', eff: 'crit', val: 0.005 }, { name: '避', eff: 'avoid', val: 0.005 }
+        { name: 'ATK', eff: 'atkPct', val: 0.01 },
+        { name: 'DEF', eff: 'defPct', val: 0.01 },
+        { name: 'HP',  eff: 'hpPct',  val: 0.02 },
+        { name: 'SKL', eff: 'skillDmg', val: 0.02 },
+        { name: 'CRI', eff: 'crit', val: 0.005 },
+        { name: 'AVO', eff: 'avoid', val: 0.005 }
     ];
+
     for (let b = 0; b < branches; b++) {
-        let prevId = 'start'; const angle = (b / branches) * Math.PI * 2;
-        for (let n = 1; n <= nodesPerBranch; n++) {
-            const id = `node_${b}_${n}`; const type = types[(b + n) % types.length]; const isKeystone = n % 25 === 0;
+        const angle = (b / branches) * Math.PI * 2;
+        for (let t = 1; t <= maxTiers; t++) {
+            const id = `node_${b}_${t}`;
+            const type = types[(b + t) % types.length];
+            const isKeystone = (t === maxTiers);
+            
+            // Effect scales with distance (tier)
+            const scale = t; 
+            const effectValue = isKeystone ? type.val * 10 : type.val * scale;
+            
             const node = {
-                id, name: isKeystone ? '大星' : type.name,
-                pos: { x: Math.cos(angle) * n * 120, y: Math.sin(angle) * n * 120 },
-                effect: { [type.eff]: isKeystone ? type.val * 5 : type.val },
-                cost: isKeystone ? n : Math.floor(n / 10) + 1,
-                req: [prevId], isKeystone, desc: isKeystone ? `強力な${type.name}の加護` : `${type.name}アップ`
+                id,
+                name: isKeystone ? `極･${type.name}` : `${type.name}+`,
+                pos: { x: Math.cos(angle) * t * 100, y: Math.sin(angle) * t * 100 },
+                effect: { [type.eff]: effectValue },
+                cost: t,
+                req: [], // Populated below
+                isKeystone,
+                desc: `${type.name}を${(effectValue * (type.eff.includes('Pct')||type.eff.includes('crit')||type.eff.includes('avoid')?100:1)).toFixed(1)}${type.eff.includes('Pct')||type.eff.includes('crit')||type.eff.includes('avoid')?'%':''}強化`
             };
-            if (isKeystone && b === 0 && n === 25) { node.id = 'keystone_meteor'; node.name = '流星'; node.effect = { meteor: true }; }
-            PASSIVE_NODES.push(node); prevId = id;
+            
+            // Connect to previous tier in same branch
+            if (t === 1) node.req.push('start');
+            else node.req.push(`node_${b}_${t-1}`);
+            
+            // Spider web: Connect to the same tier in the previous branch
+            const prevBranch = (b === 0) ? branches - 1 : b - 1;
+            node.req.push(`node_${prevBranch}_${t}`);
+            
+            PASSIVE_NODES.push(node);
         }
     }
 }
@@ -201,7 +226,15 @@ function getHeroTotalStats() {
     state.unlockedNodes.forEach(nid => {
         const n = PASSIVE_NODES.find(nx => nx.id === nid);
         if (n && n.effect) {
-            if (n.effect.atkPct) atk *= (1 + n.effect.atkPct); if (n.effect.crit) crit += n.effect.crit; if (n.effect.avoid) avoid += n.effect.avoid; if (n.effect.skillDmg) skillDmgMult += n.effect.skillDmg;
+            if (n.effect.atk) atk += n.effect.atk;
+            if (n.effect.atkPct) atk *= (1 + n.effect.atkPct);
+            if (n.effect.def) def += n.effect.def;
+            if (n.effect.defPct) def *= (1 + n.effect.defPct);
+            if (n.effect.hp) maxHp += n.effect.hp;
+            if (n.effect.hpPct) maxHp *= (1 + n.effect.hpPct);
+            if (n.effect.crit) crit += n.effect.crit;
+            if (n.effect.avoid) avoid += n.effect.avoid;
+            if (n.effect.skillDmg) skillDmgMult += n.effect.skillDmg;
         }
     });
     for (let p in setCounts) { if (setCounts[p] >= 3) atk *= 1.2; }
