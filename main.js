@@ -173,7 +173,32 @@ const WEAPON_TYPES = [
     { id: 'staff', name: '杖', bonus: { skillDmg: 0.2, hpPct: 0.1 }, desc: 'Skill+20%/HP+10%' }
 ];
 
-const PREFIXES = ["古びた", "鋭い", "丈夫な", "名工", "伝説", "神話", "至高", "究極"];
+const PREFIXES = [
+    { name: "古びた", bonus: { hp: 5 } },
+    { name: "鋭い", bonus: { atk: 10 } },
+    { name: "丈夫な", bonus: { def: 5 } },
+    { name: "幸運の", bonus: { crit: 0.05 } },
+    { name: "疾風の", bonus: { avoid: 0.05 } },
+    { name: "名工", bonus: { atkPct: 0.1, defPct: 0.1 } },
+    { name: "賢者の", bonus: { skillDmg: 0.15 } },
+    { name: "鉄壁の", bonus: { defPct: 0.2 } },
+    { name: "必殺の", bonus: { crit: 0.15 } },
+    { name: "巨人の", bonus: { hpPct: 0.25 } },
+    { name: "残虐な", bonus: { atkPct: 0.2, defPct: -0.1 } },
+    { name: "呪いの", bonus: { atkPct: 0.5, hpPct: -0.3 } },
+    { name: "光輝く", bonus: { goldPct: 0.5 } },
+    { name: "神速の", bonus: { avoid: 0.15 } },
+    { name: "深淵の", bonus: { skillDmg: 0.3 } },
+    { name: "伝説", bonus: { atkPct: 0.2, hpPct: 0.2, defPct: 0.2 } },
+    { name: "神話", bonus: { atkPct: 0.3, hpPct: 0.3, defPct: 0.3 } },
+    { name: "至高", bonus: { atkPct: 0.4 } },
+    { name: "究極", bonus: { atkPct: 0.5, crit: 0.1 } },
+    { name: "英雄の", bonus: { statsBonus: 0.1 } },
+    { name: "魔王の", bonus: { atkPct: 0.6, defPct: -0.2 } },
+    { name: "聖なる", bonus: { hpPct: 0.4, defPct: 0.2 } },
+    { name: "混沌の", bonus: { crit: 0.2, avoid: 0.2 } },
+    { name: "ベルセルク", bonus: { atkPct: 1.0, defPct: -0.5, hpPct: -0.2 } }
+];
 
 
 const PASSIVE_NODES = [];
@@ -290,6 +315,16 @@ function getHeroTotalStats() {
             if (key === 'weapon' && i.weaponType) {
                 const m = WEAPON_TYPES.find(w => w.id === i.weaponType);
                 if (m && m.bonus) { if (m.bonus.atkPct) atk *= (1+m.bonus.atkPct); if (m.bonus.crit) crit += m.bonus.crit; if (m.bonus.avoid) avoid += m.bonus.avoid; if (m.bonus.skillDmg) skillDmgMult += m.bonus.skillDmg; }
+            }
+            // Prefix Bonus
+            if (i.prefixData && i.prefixData.bonus) {
+                const b = i.prefixData.bonus;
+                if (b.atk) atk += b.atk; if (b.atkPct) atk *= (1 + b.atkPct);
+                if (b.def) def += b.def; if (b.defPct) def *= (1 + b.defPct);
+                if (b.hp) maxHp += b.hp; if (b.hpPct) maxHp *= (1 + b.hpPct);
+                if (b.crit) crit += b.crit; if (b.avoid) avoid += b.avoid;
+                if (b.skillDmg) skillDmgMult += b.skillDmg;
+                if (b.statsBonus) { atk *= (1+b.statsBonus); def *= (1+b.statsBonus); maxHp *= (1+b.statsBonus); }
             }
             (i.options || []).forEach(o => { if (o.type === 'atkPct') atk *= (1 + o.val); if (o.type === 'atk') atk += o.val; });
             (i.sockets || []).forEach(sid => { const r = RUNES.find(rx => rx.id === sid); if (r && r.bonus.atkPct) atk *= (1+r.bonus.atkPct); });
@@ -410,11 +445,11 @@ function generateLoot(fl) {
         if (roll <= cumulative) { rar = r; break; }
     }
 
-    const pref = PREFIXES[randomInt(0, PREFIXES.length - 1)];
+    const prefObj = PREFIXES[randomInt(0, PREFIXES.length - 1)];
     const hasElem = Math.random() < 0.2; // 20% chance for elemental gear
     const elemKeys = Object.keys(ELEMENTS).filter(k => k !== 'none');
     const item = { 
-        id: Date.now(), type, rarity: rar, lvl: fl, prefix: pref,
+        id: Date.now(), type, rarity: rar, lvl: fl, prefix: prefObj.name, prefixData: prefObj,
         name: `${rar.name}装備`, 
         options: [], sockets: [], socketCount: randomInt(0, 3), 
         element: hasElem ? elemKeys[randomInt(0, elemKeys.length - 1)] : 'none', 
@@ -443,8 +478,8 @@ function generateLoot(fl) {
 function generateRune() {
     if (state.inventory.length >= state.maxInventory) return;
     const r = RUNES[randomInt(0, RUNES.length - 1)]; 
-    const pref = PREFIXES[randomInt(4, PREFIXES.length - 1)]; // Runes get better prefixes
-    state.inventory.push({...r, type: 'rune', prefix: pref, value: 100}); 
+    const prefObj = PREFIXES[randomInt(0, PREFIXES.length - 1)];
+    state.inventory.push({...r, type: 'rune', prefix: prefObj.name, prefixData: prefObj, value: 100}); 
     state.achievements.konbu_count++;
 }
 
@@ -730,7 +765,11 @@ function openItemModal(val, isEquipped) {
     document.getElementById("modal-item-name").innerText = `${item.prefix}の${item.name} ${item.type !== 'rune' ? '+' + (item.lvl || 1) : ''}`;
     document.getElementById("modal-item-name").className = item.rarity ? item.rarity.colorClass : "";
     const itemElem = ELEMENTS[item.element || 'none'];
-    document.getElementById("modal-item-stats").innerHTML = `Lv.${item.lvl||1} <span style="color:${itemElem.color}">[${itemElem.name}]</span><br>ATK: ${item.atk||0} DEF: ${item.def||0} HP: ${item.hp||0}`;
+    let prefDesc = "";
+    if (item.prefixData && item.prefixData.bonus) {
+        prefDesc = `<div style="font-size:0.7rem; color:var(--success-color)">接頭辞ボーナス: ${item.prefix}[${Object.keys(item.prefixData.bonus).join('/')}]</div>`;
+    }
+    document.getElementById("modal-item-stats").innerHTML = `Lv.${item.lvl||1} <span style="color:${itemElem.color}">[${itemElem.name}]</span><br>ATK: ${item.atk||0} DEF: ${item.def||0} HP: ${item.hp||0}${prefDesc}`;
     
     document.getElementById("btn-equip-item").classList.toggle("hidden", isEquipped || item.type === 'rune');
     const lockBtn = document.getElementById("btn-lock-item");
