@@ -53,6 +53,40 @@ let canProceed = false;
 let isActing = false;
 let skillCooldowns = {};
 let availableMercs = [];
+let currentInvTab = 'all';
+const INV_SLOT_MAX = 50;
+const INV_SLOTS = ['weapon', 'head', 'body', 'hands', 'feet', 'accessory', 'rune'];
+
+function getItemSlot(item) {
+    if (item.type === 'rune') return 'rune';
+    if (item.type === 'weapon') return 'weapon';
+    if (item.type === 'accessory') return 'accessory';
+    if (item.type === 'armor' && item.armorType) return item.armorType;
+    return 'weapon'; // fallback
+}
+
+function getSlotCount(slot) {
+    return state.inventory.filter(i => getItemSlot(i) === slot).length;
+}
+
+function canAddToSlot(slot) {
+    return getSlotCount(slot) < INV_SLOT_MAX;
+}
+
+function getItemScore(item) {
+    let score = 0;
+    score += (item.atk || 0) + (item.def || 0) + (item.hp || 0);
+    if (item.rarity) score += item.rarity.statMult * 100;
+    score += (item.lvl || 0) * 5;
+    (item.options || []).forEach(o => {
+        const isPct = o.id.includes('Pct') || ['crit', 'avoid', 'skillDmg'].includes(o.id);
+        score += isPct ? o.val * 500 : o.val;
+    });
+    if (item.type === 'rune' && item.bonus) {
+        Object.values(item.bonus).forEach(v => score += (typeof v === 'number' ? (v < 1 ? v * 500 : v) : 0));
+    }
+    return score;
+}
 
 // Board variables
 let boardOffset = { x: 0, y: 0 };
@@ -554,7 +588,7 @@ function checkLevelUp() {
 }
 
 function generateLoot(fl) {
-    if (state.inventory.length >= state.maxInventory) return;
+    // Check slot-based capacity after determining item type
     const type = ['weapon', 'armor', 'accessory'][randomInt(0, 2)];
     
     // Weighted Rarity Selection
@@ -603,13 +637,15 @@ function generateLoot(fl) {
         item.hp = fl * 10; 
     }
     for(let s=0; s<item.socketCount; s++) item.sockets.push(null);
+    const slot = getItemSlot(item);
+    if (!canAddToSlot(slot)) return; // slot full
     if (rar.name === 'レア') state.achievements.loot_rare = (state.achievements.loot_rare || 0) + 1;
     if (rar.name === 'エピック') state.achievements.loot_epic = (state.achievements.loot_epic || 0) + 1;
     if (rar.name === 'レジェンダリー') state.achievements.loot_legendary = (state.achievements.loot_legendary || 0) + 1;
     state.inventory.push(item); state.achievements.total_loot++;
 }
 function generateRune() {
-    if (state.inventory.length >= state.maxInventory) return;
+    if (!canAddToSlot('rune')) return;
     const base = RUNE_BASES[randomInt(0, RUNE_BASES.length - 1)];
     const prefObj = PREFIXES[randomInt(0, PREFIXES.length - 1)];
     // Rarity selection (same weights as equipment)
@@ -782,8 +818,24 @@ function updateEnemyHP() {
 
 function updateInventoryUI() {
     const list = document.getElementById("inventory-list"); list.innerHTML = "";
-    document.getElementById("inv-count").innerText = state.inventory.length;
-    state.inventory.forEach((i, idx) => {
+    // Show count based on active tab
+    if (currentInvTab === 'all') {
+        document.getElementById("inv-count").innerText = state.inventory.length;
+        document.getElementById("inv-max").innerText = INV_SLOT_MAX * INV_SLOTS.length;
+    } else {
+        document.getElementById("inv-count").innerText = getSlotCount(currentInvTab);
+        document.getElementById("inv-max").innerText = INV_SLOT_MAX;
+    }
+    // Update tab active states
+    document.querySelectorAll('.inv-tab-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.invTab === currentInvTab);
+    });
+    // Filter items by current tab
+    const filteredItems = state.inventory.map((item, idx) => ({ item, idx })).filter(({ item }) => {
+        if (currentInvTab === 'all') return true;
+        return getItemSlot(item) === currentInvTab;
+    });
+    filteredItems.forEach(({ item: i, idx }) => {
         const d = document.createElement("div"); d.className = `inv-item ${i.rarity ? i.rarity.colorClass : ""}`;
         
         // Ensure prefix exists (migration for older items)
@@ -1402,6 +1454,10 @@ const BUTTON_MAP = {
         sellFiltered(i => i.type !== 'rune' && state.equipment[i.type] && totalStats(i) < totalStats(state.equipment[i.type]), "");
     },
     "btn-sell-all":          () => sellFiltered(i => i.type !== 'rune' && i.rarity && i.rarity.name === 'コモン', "コモン"),
+    "btn-sort-inv":          () => {
+        state.inventory.sort((a, b) => getItemScore(b) - getItemScore(a));
+        updateAllUI(); saveGame();
+    },
     "btn-casino-new":        generateCasinoRound,
     "btn-casino-settle":     settleCasino,
 };
@@ -1450,6 +1506,12 @@ document.addEventListener("DOMContentLoaded", () => {
     canvas.ontouchend = () => { if (!dragMoved && isDragging) handleBoardClick(lastMousePos.x, lastMousePos.y); isDragging = false; };
 
     bindAllButtons();
+
+    // Inventory tab switching
+    document.querySelectorAll('.inv-tab-btn').forEach(b => b.onclick = () => {
+        currentInvTab = b.dataset.invTab;
+        updateInventoryUI();
+    });
 
     const classSelect = $("hero-class-select");
     if (classSelect) classSelect.onchange = e => { state.hero.classId = e.target.value; updateAllUI(); saveGame(); };

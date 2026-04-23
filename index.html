@@ -160,10 +160,21 @@
             <!-- Right Panel: Inventory -->
             <section id="inventory-panel" class="panel">
                 <div class="inventory-header">
-                    <h3>インベントリ (<span id="inv-count">0</span>/50)</h3>
+                    <h3>インベントリ (<span id="inv-count">0</span>/<span id="inv-max">50</span>)</h3>
+                </div>
+                <div class="inv-tab-nav">
+                    <button class="inv-tab-btn active" data-inv-tab="all">全て</button>
+                    <button class="inv-tab-btn" data-inv-tab="weapon">武器</button>
+                    <button class="inv-tab-btn" data-inv-tab="head">頭</button>
+                    <button class="inv-tab-btn" data-inv-tab="body">胴</button>
+                    <button class="inv-tab-btn" data-inv-tab="hands">手</button>
+                    <button class="inv-tab-btn" data-inv-tab="feet">足</button>
+                    <button class="inv-tab-btn" data-inv-tab="accessory">飾</button>
+                    <button class="inv-tab-btn" data-inv-tab="rune">魂武</button>
                 </div>
                 <div id="inventory-list"></div>
                 <div class="inventory-actions">
+                    <button id="btn-sort-inv" class="btn btn-gold w-100 mb-05">性能順ソート ▼</button>
                     <button id="btn-sell-weaker" class="btn btn-secondary w-100 mb-05">弱い装備を売却</button>
                     <button id="btn-sell-all" class="btn btn-danger w-100">コモン売却</button>
                 </div>
