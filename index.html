@@ -17,6 +17,10 @@
                 <div class="stat"><span class="label">GOLD</span> <span id="gold-amount">0</span></div>
                 <div class="stat"><span class="label">神威</span> <span id="kamui-amount">0</span></div>
             </div>
+            <div class="dungeon-selector">
+                <button id="btn-dungeon-normal" class="btn-sm active">通常</button>
+                <button id="btn-dungeon-rune" class="btn-sm">ルーン</button>
+            </div>
             <div class="class-selector">
                 <label>職業変更:</label>
                 <select id="hero-class-select" class="btn-sm"></select>
@@ -179,6 +183,8 @@
         <div class="modal-content">
             <h2 id="modal-item-name">アイテム名</h2>
             <div id="modal-item-stats" class="item-stats"></div>
+            <div id="modal-item-options" class="item-options-list"></div>
+            <div id="modal-item-sockets" class="socket-list"></div>
             <div id="modal-item-compare" class="item-compare"></div>
             <div class="modal-actions">
                 <button id="btn-refine-item" class="btn btn-gold">強化する</button>

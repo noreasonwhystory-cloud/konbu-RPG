@@ -31,9 +31,11 @@ const getInitialState = () => ({
     inventory: [], maxInventory: 50,
     party: [],
     kamuiUpgrades: { expBonus: 0, goldBonus: 0, dropRateBonus: 0, statsBonus: 0 },
+    currentDungeon: 'normal', // 'normal' or 'rune'
     achievements: { 
         kills: {}, totalKills: 0, total_loot: 0, loot_rare: 0, loot_epic: 0, loot_legendary: 0,
-        gold_spent: 0, prestige_count: 0, total_boss_kills: 0, refine_count: 0, total_hired: 0
+        gold_spent: 0, prestige_count: 0, total_boss_kills: 0, refine_count: 0, total_hired: 0,
+        rune_count: 0
     },
     currentTitleId: null,
     isAutoMode: false 
@@ -196,11 +198,19 @@ const ENEMY_TYPES = [
 ];
 
 const RARITIES = [
-    { name: 'コモン', colorClass: 'rarity-common', weight: 60, statMult: 1 },
-    { name: 'アンコモン', colorClass: 'rarity-uncommon', weight: 25, statMult: 1.5 },
-    { name: 'レア', colorClass: 'rarity-rare', weight: 10, statMult: 2.5 },
-    { name: 'エピック', colorClass: 'rarity-epic', weight: 4, statMult: 4 },
-    { name: 'レジェンダリー', colorClass: 'rarity-legendary', weight: 1, statMult: 8 }
+    { name: 'コモン', colorClass: 'rarity-common', weight: 60, statMult: 1, maxOptions: 1 },
+    { name: 'アンコモン', colorClass: 'rarity-uncommon', weight: 25, statMult: 1.5, maxOptions: 2 },
+    { name: 'レア', colorClass: 'rarity-rare', weight: 10, statMult: 2.5, maxOptions: 3 },
+    { name: 'エピック', colorClass: 'rarity-epic', weight: 4, statMult: 4, maxOptions: 4 },
+    { name: 'レジェンダリー', colorClass: 'rarity-legendary', weight: 1, statMult: 8, maxOptions: 4 }
+];
+
+const RUNES = [
+    { id: 'r_atk', name: '力のルーン', bonus: { atkPct: 0.05 }, color: '#f87171' },
+    { id: 'r_def', name: '守のルーン', bonus: { defPct: 0.05 }, color: '#60a5fa' },
+    { id: 'r_hp', name: '命のルーン', bonus: { hpPct: 0.05 }, color: '#4ade80' },
+    { id: 'r_exp', name: '智のルーン', bonus: { expPct: 0.1 }, color: '#a855f7' },
+    { id: 'r_gold', name: '富のルーン', bonus: { goldPct: 0.1 }, color: '#fbbf24' }
 ];
 
 // --- Core ---
@@ -275,11 +285,26 @@ function getHeroTotalStats() {
     // Apply kamui
     atk *= kamuiMult; def *= kamuiMult; maxHp *= kamuiMult;
 
-    let setCounts = {};
+    // Apply Equipment Stats & Runes
     for (const key in state.equipment) {
         const i = state.equipment[key];
         if (i) { 
-            atk += (i.atk || 0); def += (i.def || 0); maxHp += (i.hp || 0); 
+            if (i.atk) atk += i.atk; if (i.def) def += i.def; if (i.hp) maxHp += i.hp;
+            if (i.options) i.options.forEach(opt => {
+                if (opt.type === 'atk') atk += opt.val;
+                if (opt.type === 'def') def += opt.val;
+                if (opt.type === 'hp') maxHp += opt.val;
+                if (opt.type === 'atkPct') atk *= (1 + opt.val);
+                if (opt.type === 'defPct') def *= (1 + opt.val);
+            });
+            if (i.sockets) i.sockets.forEach(runeId => {
+                const r = RUNES.find(rx => rx.id === runeId);
+                if (r && r.bonus) {
+                    if (r.bonus.atkPct) atk *= (1 + r.bonus.atkPct);
+                    if (r.bonus.defPct) def *= (1 + r.bonus.defPct);
+                    if (r.bonus.hpPct) maxHp *= (1 + r.bonus.hpPct);
+                }
+            });
             if (i.prefix) setCounts[i.prefix] = (setCounts[i.prefix] || 0) + 1;
         }
     }
@@ -392,9 +417,22 @@ function onEnemyDefeated() {
     state.gold += goldG; checkLevelUp();
     
     let dropChance = 0.3 * (1 + state.kamuiUpgrades.dropRateBonus * 0.25);
-    if (Math.random() < dropChance || currentEnemy.isBoss || currentEnemy.isRare) generateLoot(state.floor);
+    if (state.currentDungeon === 'rune') {
+        if (Math.random() < 0.4 || currentEnemy.isBoss) generateRune();
+    } else {
+        if (Math.random() < dropChance || currentEnemy.isBoss || currentEnemy.isRare) generateLoot(state.floor);
+    }
     
     canProceed = true; isActing = false; updateAllUI(); saveGame();
+}
+
+function generateRune() {
+    if (state.inventory.length >= state.maxInventory) return;
+    const rData = RUNES[randomInt(0, RUNES.length - 1)];
+    const rune = { ...rData, type: 'rune', value: 100 };
+    state.inventory.push(rune);
+    state.achievements.rune_count++;
+    logMessage(`${rune.name} を獲得！`, "loot");
 }
 
 function checkLevelUp() {
@@ -488,13 +526,24 @@ function generateLoot(floor) {
     const elemKeys = Object.keys(ELEMENTS);
     const elem = elemKeys[randomInt(0, elemKeys.length - 1)];
 
-    let i = { id: Date.now() + randomInt(0,999), type, rarity: rar, lvl: fl, prefix: p, element: elem, name: `[Lv.${fl}] ${p}${baseName}` };
+    let i = { 
+        id: Date.now() + randomInt(0,999), type, rarity: rar, lvl: fl, prefix: p, element: elem, 
+        name: `[Lv.${fl}] ${p}${baseName}`, options: [], sockets: [], socketCount: randomInt(0, 3) 
+    };
+    for(let s=0; s<i.socketCount; s++) i.sockets.push(null);
     
+    // Generate base stat
     if (type === 'weapon') i.atk = finalVal;
     else if (type === 'armor') i.def = finalVal;
-    else { 
-        if (Math.random() > 0.5) { i.atk = Math.floor(finalVal*0.4); i.def = Math.floor(finalVal*0.4); } 
-        else i.hp = finalVal*5; 
+    else { i.hp = finalVal * 5; }
+
+    // Generate random options
+    const optTypes = ['atk', 'def', 'hp', 'atkPct', 'defPct'];
+    for(let o=0; o < rar.maxOptions; o++) {
+        const oType = optTypes[randomInt(0, optTypes.length - 1)];
+        let oVal = Math.floor(finalVal * 0.2);
+        if (oType.endsWith('Pct')) oVal = 0.01 + (Math.random() * 0.05);
+        i.options.push({ type: oType, val: oVal });
     }
     
     i.value = Math.floor(finalVal * rar.statMult * 0.5);
@@ -661,6 +710,34 @@ function openItemModal(val, isEquipped = false) {
     let sT = `Lv.${item.lvl} / 属性: ${ELEMENTS[item.element]?.name || "無"}<br>`;
     if (item.atk) sT += `ATK: ${item.atk} `; if (item.def) sT += `DEF: ${item.def} `; if (item.hp) sT += `HP: ${item.hp} `;
     if (st) st.innerHTML = sT;
+
+    // Render Options
+    const optList = document.getElementById("modal-item-options");
+    if (optList) {
+        optList.innerHTML = item.options && item.options.length > 0 ? "<h4>追加オプション</h4>" : "";
+        (item.options || []).forEach((opt, idx) => {
+            const d = document.createElement("div");
+            d.className = "merc-item";
+            const cost = Math.floor(500 * Math.pow(1.1, item.lvl));
+            d.innerHTML = `<div>${opt.type.toUpperCase()}: ${opt.type.endsWith('Pct') ? (opt.val*100).toFixed(1)+'%' : opt.val}</div>
+                           <button class="btn-sm" onclick="window.rerollOption('${val}', ${isEquipped}, ${idx})">再抽選 (${cost}G)</button>`;
+            optList.appendChild(d);
+        });
+    }
+
+    // Render Sockets
+    const sockList = document.getElementById("modal-item-sockets");
+    if (sockList) {
+        sockList.innerHTML = item.sockets && item.sockets.length > 0 ? "<h4>ソケット</h4>" : "";
+        (item.sockets || []).forEach((runeId, idx) => {
+            const d = document.createElement("div");
+            d.className = "merc-item";
+            const r = RUNES.find(rx => rx.id === runeId);
+            d.innerHTML = `<div>Socket ${idx+1}: ${r ? `<span style="color:${r.color}">${r.name}</span>` : '空き'}</div>
+                           <button class="btn-sm" onclick="window.openRuneModal('${val}', ${isEquipped}, ${idx})">${r ? '変更' : '装着'}</button>`;
+            sockList.appendChild(d);
+        });
+    }
 
     const compEl = document.getElementById("modal-item-compare");
     if (compEl) {
@@ -876,6 +953,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const slI=document.getElementById("btn-sell-item"); if(slI) slI.onclick = () => { state.gold += state.inventory[selectedItemIndex].value; state.inventory.splice(selectedItemIndex, 1); const m=document.getElementById("item-modal"); if(m) m.classList.add("hidden"); updateAllUI(); saveGame(); };
     const cSel=document.getElementById("hero-class-select"); if(cSel) cSel.onchange = (e) => { state.hero.classId = e.target.value; updateAllUI(); saveGame(); };
     const prst=document.getElementById("btn-prestige"); if(prst) prst.onclick = doPrestige;
+
+    const bNorm = document.getElementById("btn-dungeon-normal");
+    const bRune = document.getElementById("btn-dungeon-rune");
+    if (bNorm && bRune) {
+        bNorm.onclick = () => { state.currentDungeon = 'normal'; bNorm.classList.add("active"); bRune.classList.remove("active"); startBattle(); };
+        bRune.onclick = () => { state.currentDungeon = 'rune'; bRune.classList.add("active"); bNorm.classList.remove("active"); startBattle(); };
+    }
+    
+    const clR = document.getElementById("btn-close-rune-modal");
+    if (clR) clR.onclick = () => document.getElementById("rune-modal").classList.add("hidden");
     
     // System events
     const expCode=document.getElementById("btn-export-code"); if(expCode) expCode.onclick = exportSaveCode;
@@ -886,3 +973,55 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 window.hireMercenary = hireMercenary; window.dismissMercenary = dismissMercenary; window.buyKamuiUpgrade = buyKamuiUpgrade;
+
+let targetSocket = null; // { val, isEquipped, socketIdx }
+
+window.rerollOption = (val, isEquipped, optIdx) => {
+    const item = isEquipped ? state.equipment[val] : state.inventory[val];
+    const cost = Math.floor(500 * Math.pow(1.1, item.lvl));
+    if (state.gold >= cost) {
+        state.gold -= cost;
+        const optTypes = ['atk', 'def', 'hp', 'atkPct', 'defPct'];
+        const oType = optTypes[randomInt(0, optTypes.length - 1)];
+        let oVal = Math.floor(10 * Math.pow(1.03, item.lvl) * 0.2);
+        if (oType.endsWith('Pct')) oVal = 0.01 + (Math.random() * 0.05);
+        item.options[optIdx] = { type: oType, val: oVal };
+        updateAllUI(); openItemModal(val, isEquipped); saveGame();
+        logMessage("オプションを再抽選しました！", "system");
+    } else alert("ゴールドが足りません！");
+};
+
+window.openRuneModal = (val, isEquipped, socketIdx) => {
+    targetSocket = { val, isEquipped, socketIdx };
+    const list = document.getElementById("rune-select-list");
+    list.innerHTML = "";
+    const runesInInv = state.inventory.filter(i => i.type === 'rune');
+    if (runesInInv.length === 0) { list.innerHTML = "<p>ルーンを持っていません。ルーンダンジョンで集めましょう！</p>"; }
+    runesInInv.forEach((r, invIdx) => {
+        const d = document.createElement("div");
+        d.className = "merc-item";
+        d.innerHTML = `<div><span style="color:${r.color}">${r.name}</span></div><button class="btn-sm" onclick="window.attachRune(${invIdx})">装着</button>`;
+        list.appendChild(d);
+    });
+    document.getElementById("rune-modal").classList.remove("hidden");
+};
+
+window.attachRune = (invIdx) => {
+    const runesInInv = state.inventory.filter(i => i.type === 'rune');
+    const runeToAttach = runesInInv[invIdx];
+    // Remove from inventory
+    const realIdx = state.inventory.indexOf(runeToAttach);
+    state.inventory.splice(realIdx, 1);
+    
+    const item = targetSocket.isEquipped ? state.equipment[targetSocket.val] : state.inventory[targetSocket.val];
+    // Return old rune if exists
+    if (item.sockets[targetSocket.socketIdx]) {
+        const oldRuneData = RUNES.find(rx => rx.id === item.sockets[targetSocket.socketIdx]);
+        state.inventory.push({ ...oldRuneData, type: 'rune', value: 100 });
+    }
+    item.sockets[targetSocket.socketIdx] = runeToAttach.id;
+    
+    document.getElementById("rune-modal").classList.add("hidden");
+    updateAllUI(); openItemModal(targetSocket.val, targetSocket.isEquipped); saveGame();
+    logMessage("ルーンを装着しました！", "system");
+};

@@ -360,47 +360,35 @@ body {
 .skill-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .skill-info { font-size: 0.75rem; color: var(--text-muted); display: block; }
 
-/* Mobile Responsiveness */
+.dungeon-selector {
+    display: flex;
+    gap: 0.5rem;
+    background: rgba(0,0,0,0.2);
+    padding: 0.25rem;
+    border-radius: 8px;
+}
+.dungeon-selector .btn-sm.active {
+    background: var(--success-color);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+}
+
+.item-options-list, .socket-list {
+    margin-top: 1rem;
+    text-align: left;
+}
+.item-options-list h4, .socket-list h4 {
+    font-size: 0.85rem;
+    color: var(--accent-color);
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+/* Rune Specific */
+.rune-item {
+    border: 1px dashed var(--accent-color);
+}
+
+/* Mobile Adjustments */
 @media (max-width: 768px) {
-    #game-container { padding: 0.5rem; gap: 0.5rem; }
-    
-    #game-header { 
-        padding: 0.75rem 1rem; 
-        flex-direction: column; 
-        gap: 0.5rem; 
-        text-align: center;
-    }
-    
-    #main-content { 
-        flex-direction: column; 
-        overflow: visible;
-    }
-    
-    .panel { 
-        flex: none !important; 
-        width: 100% !important; 
-        padding: 1rem;
-        height: auto;
-    }
-
-    #battle-panel {
-        order: -1; /* Keep battle at the top on mobile */
-    }
-
-    .battle-scene {
-        padding: 0.5rem;
-        min-height: 200px;
-    }
-
-    .sprite-container {
-        width: 110px;
-        height: 110px;
-    }
-
-    .vs { font-size: 1.5rem; margin: 0 0.5rem; }
-    
-    .control-row { flex-wrap: wrap; }
-    .btn { flex: 1; min-width: 45%; font-size: 0.9rem; }
-    
-    #battle-log { height: 150px; }
+    .dungeon-selector { margin: 0.5rem 0; }
 }
