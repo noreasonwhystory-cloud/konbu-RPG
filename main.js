@@ -1273,7 +1273,8 @@ function handlePrestige() {
     state.kamui += Math.floor(state.floor / 5);
     state.achievements.prestige_count = (state.achievements.prestige_count || 0) + 1;
     state.floor = 1; state.gold = 0;
-    currentEnemy = null; updateAllUI(); startBattle(); saveGame();
+    currentEnemy = null; canProceed = false; isActing = false;
+    updateAllUI(); startBattle(); saveGame();
 }
 
 function handleEquipItem() {
@@ -1334,7 +1335,7 @@ const BUTTON_MAP = {
     "btn-import-code":       importSaveCode,
     "btn-dungeon-normal":    () => switchDungeon('normal'),
     "btn-dungeon-rune":      () => switchDungeon('rune'),
-    "btn-retreat":           () => { if (state.floor > 1) { state.floor--; currentEnemy = null; startBattle(); } },
+    "btn-retreat":           () => { if (state.floor > 1) { state.floor--; currentEnemy = null; canProceed = false; isActing = false; startBattle(); } },
     "btn-prestige":          handlePrestige,
     "btn-equip-item":        handleEquipItem,
     "btn-refine-item":       handleRefineItem,
