@@ -696,7 +696,20 @@ function updateEquipmentUI() {
     } 
 }
 
-function updateInventoryUI() { const list = document.getElementById("inventory-list"); if(!list) return; list.innerHTML = ""; document.getElementById("inv-count").innerText = state.inventory.length; state.inventory.forEach((i, idx) => { const d = document.createElement("div"); d.className = "inv-item"; d.innerHTML = `<div class="item-name ${i.rarity.colorClass}">${i.name}</div>`; d.onclick = () => openItemModal(idx, false); list.appendChild(d); }); }
+function updateInventoryUI() { 
+    const list = document.getElementById("inventory-list"); 
+    if(!list) return; 
+    list.innerHTML = ""; 
+    document.getElementById("inv-count").innerText = state.inventory.length; 
+    state.inventory.forEach((i, idx) => { 
+        const d = document.createElement("div"); 
+        d.className = "inv-item"; 
+        const rarityClass = i.rarity ? i.rarity.colorClass : "rarity-common";
+        d.innerHTML = `<div class="item-name ${rarityClass}">${i.name}</div>`; 
+        d.onclick = () => openItemModal(idx, false); 
+        list.appendChild(d); 
+    }); 
+}
 
 let selectedItemSource = null; // { typeOrIndex: index, isEquipped: bool }
 
@@ -706,13 +719,23 @@ function openItemModal(val, isEquipped = false) {
     if (!item) return;
 
     const mod = document.getElementById("item-modal"); if (mod) mod.classList.remove("hidden");
-    const name = document.getElementById("modal-item-name"); if (name) { name.innerText = item.name; name.className = item.rarity.colorClass; }
+    const name = document.getElementById("modal-item-name"); 
+    if (name) { 
+        name.innerText = item.name; 
+        name.className = item.rarity ? item.rarity.colorClass : "rarity-common"; 
+    }
     
     const currentEquip = state.equipment[item.type];
     const st = document.getElementById("modal-item-stats");
-    let sT = `Lv.${item.lvl} / 属性: ${ELEMENTS[item.element]?.name || "無"}<br>`;
-    if (item.atk) sT += `ATK: ${item.atk} `; if (item.def) sT += `DEF: ${item.def} `; if (item.hp) sT += `HP: ${item.hp} `;
-    if (st) st.innerHTML = sT;
+    if (st) {
+        if (item.type === 'rune') {
+            st.innerHTML = "装着するとステータスが上昇します。";
+        } else {
+            let sT = `Lv.${item.lvl || 1} / 属性: ${ELEMENTS[item.element]?.name || "無"}<br>`;
+            if (item.atk) sT += `ATK: ${item.atk} `; if (item.def) sT += `DEF: ${item.def} `; if (item.hp) sT += `HP: ${item.hp} `;
+            st.innerHTML = sT;
+        }
+    }
 
     // Render Options
     const optList = document.getElementById("modal-item-options");
@@ -741,6 +764,11 @@ function openItemModal(val, isEquipped = false) {
             sockList.appendChild(d);
         });
     }
+
+    const btnEquip = document.getElementById("btn-equip-item");
+    const btnRefine = document.getElementById("btn-refine-item");
+    if (btnEquip) btnEquip.classList.toggle("hidden", item.type === 'rune');
+    if (btnRefine) btnRefine.classList.toggle("hidden", item.type === 'rune');
 
     const compEl = document.getElementById("modal-item-compare");
     if (compEl) {
