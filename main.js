@@ -222,14 +222,57 @@ const WEAPON_TYPES = [
     { id: 'staff', name: '杖', bonus: { skillDmg: 0.2, hpPct: 0.1 }, desc: '特技威力+20% / HP+10%' }
 ];
 
-const PASSIVE_NODES = [
-    { id: 'start', name: '起点', pos: { x: 0, y: 0 }, effect: { atk: 5 }, cost: 0, req: [] },
-    { id: 'atk_1', name: '腕力 I', pos: { x: 1, y: 0 }, effect: { atkPct: 0.03 }, cost: 1, req: ['start'] },
-    { id: 'def_1', name: '忍耐 I', pos: { x: 0, y: 1 }, effect: { defPct: 0.03 }, cost: 1, req: ['start'] },
-    { id: 'hp_1', name: '生命 I', pos: { x: -1, y: 0 }, effect: { hpPct: 0.05 }, cost: 1, req: ['start'] },
-    { id: 'crit_1', name: '集中 I', pos: { x: 2, y: 0 }, effect: { crit: 0.05 }, cost: 2, req: ['atk_1'] },
-    { id: 'keystone_meteor', name: '流星の啓示', pos: { x: 3, y: 0 }, effect: { meteor: true }, cost: 5, req: ['crit_1'], isKeystone: true, desc: '攻撃時に5%でメテオが降り注ぎ、攻撃力の5倍のダメージを与える。' }
-];
+const PASSIVE_NODES = [];
+function generateNodes() {
+    // Start node
+    PASSIVE_NODES.push({ id: 'start', name: '起点', pos: { x: 0, y: 0 }, effect: { atk: 5 }, cost: 0, req: [] });
+    
+    // Generate 1000 nodes in 8 branching directions (constellations)
+    const branches = 8;
+    const nodesPerBranch = 124; // 124 * 8 + 1 = 993 nodes
+    const types = [
+        { name: '力', eff: 'atkPct', val: 0.01, cost: 1 },
+        { name: '守', eff: 'defPct', val: 0.01, cost: 1 },
+        { name: '命', eff: 'hpPct', val: 0.02, cost: 1 },
+        { name: '技', eff: 'skillDmg', val: 0.02, cost: 2 },
+        { name: '極', eff: 'crit', val: 0.005, cost: 2 },
+        { name: '避', eff: 'avoid', val: 0.005, cost: 2 }
+    ];
+
+    for (let b = 0; b < branches; b++) {
+        let prevId = 'start';
+        const angle = (b / branches) * Math.PI * 2;
+        for (let n = 1; n <= nodesPerBranch; n++) {
+            const id = `node_${b}_${n}`;
+            const dist = n * 60 + 40;
+            const type = types[(b + n) % types.length];
+            const isKeystone = n % 25 === 0;
+            
+            const node = {
+                id,
+                name: isKeystone ? '大星' : type.name,
+                pos: { 
+                    x: Math.cos(angle) * n + (Math.random() * 0.2 - 0.1) * n, 
+                    y: Math.sin(angle) * n + (Math.random() * 0.2 - 0.1) * n 
+                },
+                effect: { [type.eff]: isKeystone ? type.val * 5 : type.val },
+                cost: isKeystone ? n : Math.floor(n / 10) + 1,
+                req: [prevId],
+                isKeystone,
+                desc: isKeystone ? `強力な${type.name}の加護` : `${type.name}アップ`
+            };
+            if (isKeystone && b === 0 && n === 25) {
+                node.id = 'keystone_meteor';
+                node.name = '流星';
+                node.effect = { meteor: true };
+                node.desc = '攻撃時にメテオが降る';
+            }
+            PASSIVE_NODES.push(node);
+            prevId = id;
+        }
+    }
+}
+generateNodes();
 
 // --- Core ---
 
@@ -277,6 +320,7 @@ function getHeroTotalStats() {
     let maxHp = state.hero.maxHp;
     let crit = 0.05;
     let avoid = 0.05;
+    let skillDmgMult = 1.0;
 
     if (state.hero.classLevels) {
         for (let cid in state.hero.classLevels) {
@@ -321,6 +365,7 @@ function getHeroTotalStats() {
                     if (m.bonus.hpPct) maxHp *= (1 + m.bonus.hpPct);
                     if (m.bonus.crit) crit += m.bonus.crit;
                     if (m.bonus.avoid) avoid += m.bonus.avoid;
+                    if (m.bonus.skillDmg) skillDmgMult += m.bonus.skillDmg;
                 }
             }
 
@@ -353,6 +398,7 @@ function getHeroTotalStats() {
             if (n.effect.hpPct) maxHp *= (1 + n.effect.hpPct);
             if (n.effect.crit) crit += n.effect.crit;
             if (n.effect.avoid) avoid += n.effect.avoid;
+            if (n.effect.skillDmg) skillDmgMult += n.effect.skillDmg;
         }
     });
 
@@ -366,7 +412,8 @@ function getHeroTotalStats() {
         def: Math.floor(def), 
         maxHp: Math.floor(maxHp),
         crit: Math.min(0.8, crit),
-        avoid: Math.min(0.8, avoid)
+        avoid: Math.min(0.8, avoid),
+        skillDmg: skillDmgMult
     };
 }
 
@@ -718,34 +765,39 @@ function updatePassiveBoardUI() {
         const canUnlock = state.passivePoints >= n.cost && (n.req.length === 0 || n.req.some(r => state.unlockedNodes.includes(r)));
         
         div.className = `passive-node ${unlocked ? 'unlocked' : (canUnlock ? 'available' : 'locked')} ${n.isKeystone ? 'keystone' : ''}`;
-        div.style.left = `calc(50% + ${n.pos.x * 80}px)`;
-        div.style.top = `calc(50% + ${n.pos.y * 80}px)`;
+        div.style.left = `calc(50% + ${n.pos.x * 120}px)`;
+        div.style.top = `calc(50% + ${n.pos.y * 120}px)`;
         div.title = `${n.name}\n${n.desc || ""}\nCost: ${n.cost}`;
         
         if (canUnlock && !unlocked) {
-            div.onclick = () => unlockNode(n.id);
+            div.onclick = (e) => { e.stopPropagation(); unlockNode(n.id); };
+        } else if (unlocked) {
+            div.onclick = (e) => { e.stopPropagation(); logMessage(`${n.name}: ${n.desc || '解放済み'}`); };
         }
         
-        const span = document.createElement("span");
-        span.innerText = n.name;
-        div.appendChild(span);
-        board.appendChild(div);
+        if (n.isKeystone || unlocked || canUnlock) {
+            const span = document.createElement("span");
+            span.innerText = n.name;
+            div.appendChild(span);
+            board.appendChild(div);
+        }
 
-        // Draw lines to requirements
+        // Only draw lines if parent is unlocked to save performance
         n.req.forEach(reqId => {
+            if (!state.unlockedNodes.includes(reqId) && reqId !== 'start') return;
             const reqNode = PASSIVE_NODES.find(nx => nx.id === reqId);
             if (reqNode) {
                 const line = document.createElement("div");
                 line.className = `passive-line ${unlocked && state.unlockedNodes.includes(reqId) ? 'active' : ''}`;
-                // Simplified line drawing for grid
-                const dx = (n.pos.x - reqNode.pos.x) * 80;
-                const dy = (n.pos.y - reqNode.pos.y) * 80;
+                const x1 = n.pos.x * 120; const y1 = n.pos.y * 120;
+                const x2 = reqNode.pos.x * 120; const y2 = reqNode.pos.y * 120;
+                const dx = x1 - x2; const dy = y1 - y2;
                 const length = Math.sqrt(dx*dx + dy*dy);
                 const angle = Math.atan2(dy, dx) * 180 / Math.PI;
                 
                 line.style.width = `${length}px`;
-                line.style.left = `calc(50% + ${reqNode.pos.x * 80 + 20}px)`;
-                line.style.top = `calc(50% + ${reqNode.pos.y * 80 + 20}px)`;
+                line.style.left = `calc(50% + ${x2 + 20}px)`;
+                line.style.top = `calc(50% + ${y2 + 20}px)`;
                 line.style.transform = `rotate(${angle}deg)`;
                 board.appendChild(line);
             }
@@ -1036,8 +1088,8 @@ function doPrestige() {
 }
 function useSkill(skill) {
     if ((skillCooldowns[skill.id] || 0) > 0 || !currentEnemy || canProceed || isActing) return;
-    executeAttack(skill.mult, true);
     const stats = getHeroTotalStats();
+    executeAttack(skill.mult * stats.skillDmg, true);
     if (skill.heal) { let h = Math.floor(stats.maxHp * skill.heal); updateHeroHP(h); logMessage(`HP回復 ${h}`, "heal"); }
     if (skill.recoil) { let r = Math.floor(stats.maxHp * skill.recoil); updateHeroHP(-r); logMessage(`反動 ${r}`, "damage"); }
     if (skill.gold) { let g = 10 + state.floor; state.gold += g; logMessage(`${g} G入手！`, "loot"); updateHeaderUI(); }
@@ -1119,7 +1171,18 @@ function resetGame() {
 
 // Events
 document.addEventListener("DOMContentLoaded", () => {
-    document.querySelectorAll(".tab-btn").forEach(b => b.onclick = () => { document.querySelectorAll(".tab-btn").forEach(x => x.classList.remove("active")); document.querySelectorAll(".tab-content").forEach(x => x.classList.remove("active")); b.classList.add("active"); const t=document.getElementById(b.dataset.target); if(t) t.classList.add("active"); });
+    document.querySelectorAll(".tab-btn").forEach(b => b.onclick = () => { 
+        document.querySelectorAll(".tab-btn").forEach(x => x.classList.remove("active")); 
+        document.querySelectorAll(".tab-content").forEach(x => x.classList.remove("active")); 
+        b.classList.add("active"); 
+        const t=document.getElementById(b.dataset.target); 
+        if(t) t.classList.add("active"); 
+        if(b.dataset.target === 'tab-star') {
+            // Center the starting node
+            const board = document.getElementById("passive-board");
+            if (board) { board.scrollLeft = 5000 - board.clientWidth/2; board.scrollTop = 5000 - board.clientHeight/2; }
+        }
+    });
     const autoBtn=document.getElementById("btn-toggle-auto"); if(autoBtn) autoBtn.onclick = () => { state.isAutoMode = !state.isAutoMode; updateBattleControls(); saveGame(); };
     const atkBtn=document.getElementById("btn-attack"); if(atkBtn) atkBtn.onclick = () => executeAttack();
     const skBtn=document.getElementById("btn-open-skills"); if(skBtn) skBtn.onclick = () => openSkillModal();
