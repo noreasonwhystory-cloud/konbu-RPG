@@ -212,6 +212,13 @@ function updateHeroHP(amount) {
     const hpEl = document.getElementById("hero-hp"); if (hpEl) hpEl.innerText = Math.floor(state.hero.hp);
 }
 
+function logMessage(msg, type = "normal") {
+    const log = document.getElementById("battle-log"); if (!log) return;
+    const d = document.createElement("div"); d.className = `log-entry ${type}`;
+    d.innerText = msg; log.appendChild(d); log.scrollTop = log.scrollHeight;
+    while (log.children.length > 50) log.removeChild(log.firstChild);
+}
+
 // --- Actions ---
 
 function executeAttack(multiplier = 1, isSkill = false) {
@@ -289,11 +296,26 @@ function generateRune() {
 // --- UI ---
 
 function updateAllUI() {
+    updateClassSelectorUI();
     document.getElementById("current-floor").innerText = state.floor;
     document.getElementById("gold-amount").innerText = state.gold;
     document.getElementById("kamui-amount").innerText = state.kamui;
     updateStatusUI(); updateEquipmentUI(); updateInventoryUI(); updatePartyUI(); updateKamuiUI(); updateBattleControls(); updateEnemyHP();
     drawPassiveBoard();
+}
+
+function updateClassSelectorUI() {
+    const sel = document.getElementById("hero-class-select"); if (!sel) return;
+    const unlocked = Object.keys(CLASSES).filter(cid => {
+        const c = CLASSES[cid]; if (!c.req) return true;
+        return Object.keys(c.req).every(reqId => (state.hero.classLevels[reqId] || 1) >= c.req[reqId]);
+    });
+    if (sel.children.length === unlocked.length && sel.children.length > 0) return;
+    sel.innerHTML = "";
+    unlocked.forEach(cid => {
+        const opt = document.createElement("option"); opt.value = cid; opt.innerText = CLASSES[cid].name;
+        opt.selected = (state.hero.classId === cid); sel.appendChild(opt);
+    });
 }
 
 function updateStatusUI() {
@@ -439,6 +461,30 @@ function handleBoardClick(x, y) {
 // --- Modals ---
 
 let selectedItemSource = null;
+function openSkillModal() {
+    const list = document.getElementById("skill-list"); if (!list) return; list.innerHTML = "";
+    const cid = state.hero.classId;
+    CLASSES[cid].skills.forEach(s => {
+        const btn = document.createElement("button"); btn.className = "btn btn-gold w-100 mt-05";
+        const locked = s.unlockLvl > (state.hero.classLevels[cid] || 1);
+        const cd = skillCooldowns[s.id] || 0;
+        btn.disabled = locked || cd > 0 || isActing;
+        btn.innerHTML = `<div><strong>${s.name}</strong> ${locked ? `(Lv.${s.unlockLvl}解放)` : (cd > 0 ? `(${cd}s)` : "")}</div><div style="font-size:0.7rem">${s.desc}</div>`;
+        if (!btn.disabled) btn.onclick = () => { useSkill(s); };
+        list.appendChild(btn);
+    });
+    document.getElementById("skill-modal").classList.remove("hidden");
+}
+function closeSkillModal() { document.getElementById("skill-modal").classList.add("hidden"); }
+
+function useSkill(skill) {
+    if ((skillCooldowns[skill.id] || 0) > 0 || !currentEnemy || canProceed || isActing) return;
+    const stats = getHeroTotalStats();
+    executeAttack(skill.mult * stats.skillDmg, true);
+    if (skill.heal) updateHeroHP(Math.floor(stats.maxHp * skill.heal));
+    skillCooldowns[skill.id] = skill.cd; closeSkillModal();
+}
+
 function openItemModal(val, isEquipped) {
     selectedItemSource = { val, isEquipped };
     const item = isEquipped ? state.equipment[val] : state.inventory[val];
@@ -519,14 +565,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById("btn-attack").onclick = () => executeAttack();
     document.getElementById("btn-toggle-auto").onclick = () => { state.isAutoMode = !state.isAutoMode; updateBattleControls(); };
+    document.getElementById("btn-open-skills").onclick = openSkillModal;
+    document.getElementById("btn-close-skill-modal").onclick = closeSkillModal;
     document.getElementById("btn-next-floor").onclick = nextFloor;
     document.getElementById("btn-close-modal").onclick = closeItemModal;
+    document.getElementById("hero-class-select").onchange = (e) => { state.hero.classId = e.target.value; updateAllUI(); saveGame(); };
+    
     document.getElementById("btn-equip-item").onclick = () => {
+        if (!selectedItemSource) return;
         const { val, isEquipped } = selectedItemSource; if (isEquipped) return;
         const item = state.inventory[val]; if (state.equipment[item.type]) state.inventory.push(state.equipment[item.type]);
         state.equipment[item.type] = item; state.inventory.splice(val, 1); closeItemModal(); updateAllUI(); saveGame();
     };
     document.getElementById("btn-sell-item").onclick = () => {
+        if (!selectedItemSource) return;
         const { val, isEquipped } = selectedItemSource; if (isEquipped) return;
         state.gold += state.inventory[val].value; state.inventory.splice(val, 1); closeItemModal(); updateAllUI(); saveGame();
     };
