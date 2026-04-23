@@ -227,7 +227,7 @@ const OPTION_TYPES = [
 
 function getOptionValue(typeId, lvl, rarity) {
     const type = OPTION_TYPES.find(t => t.id === typeId);
-    const rMult = rarity ? rarity.mult : 1;
+    const rMult = rarity ? rarity.statMult : 1;
     const base = type.base;
     const isPct = typeId.includes('Pct') || ['crit', 'avoid', 'skillDmg'].includes(typeId);
     let val = base * (1 + lvl * 0.1) * (0.5 + Math.random() * rMult);
@@ -651,11 +651,12 @@ function updateClassSelectorUI() {
 function updateStatusUI() {
     const stats = getHeroTotalStats(); const c = CLASSES[state.hero.classId];
     document.getElementById("hero-level").innerText = `総合Lv.${state.hero.level} / ${c.name}Lv.${state.hero.classLevels[state.hero.classId]}`;
-    document.getElementById("hero-hp").innerText = Math.floor(state.hero.hp);
-    document.getElementById("hero-max-hp").innerText = stats.maxHp;
-    document.getElementById("hero-atk").innerText = stats.atk;
-    document.getElementById("hero-def").innerText = stats.def;
-    document.getElementById("hero-avoid").innerText = (stats.avoid * 100).toFixed(1) + "%";
+    document.getElementById("hero-hp").innerText = Math.floor(state.hero.hp) || 0;
+    document.getElementById("hero-max-hp").innerText = stats.maxHp || 0;
+    document.getElementById("hero-atk").innerText = stats.atk || 0;
+    document.getElementById("hero-def").innerText = stats.def || 0;
+    const critEl = document.getElementById("hero-crit"); if (critEl) critEl.innerText = ((stats.crit || 0) * 100).toFixed(1) + "%";
+    document.getElementById("hero-avoid").innerText = ((stats.avoid || 0) * 100).toFixed(1) + "%";
     
     // Set Bonus Display
     const setListEl = document.getElementById("set-bonus-list");
@@ -961,7 +962,7 @@ function openItemModal(val, isEquipped) {
             const div = document.createElement("div"); div.className = "stat-item mt-1";
             const isPct = o.id.includes('Pct') || ['crit', 'avoid', 'skillDmg'].includes(o.id);
             const displayVal = isPct ? (o.val * 100).toFixed(1) + '%' : o.val;
-            const cost = Math.floor(100 * (item.lvl || 1) * (item.rarity ? item.rarity.mult : 1));
+            const cost = Math.floor(100 * (item.lvl || 1) * (item.rarity ? item.rarity.statMult : 1));
             div.innerHTML = `<span style="font-size:0.8rem">${o.name}: ${displayVal}</span>`;
             const btn = document.createElement("button"); btn.className = "btn-sm"; btn.innerText = `${cost}G`;
             btn.onclick = () => window.rerollOption(val, isEquipped, i);
@@ -1075,7 +1076,7 @@ window.buyKamuiUpgrade = (k) => { if (state.kamui >= 1) { state.kamui -= 1; stat
 window.rerollOption = (val, isEquipped, idx) => { 
     const item = isEquipped ? state.equipment[val] : state.inventory[val]; 
     if (!item) return;
-    const cost = Math.floor(100 * (item.lvl || 1) * (item.rarity ? item.rarity.mult : 1));
+    const cost = Math.floor(100 * (item.lvl || 1) * (item.rarity ? item.rarity.statMult : 1));
     if (state.gold >= cost) { 
         state.gold -= cost; 
         const type = OPTION_TYPES[randomInt(0, OPTION_TYPES.length - 1)];
