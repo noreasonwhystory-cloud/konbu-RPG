@@ -202,7 +202,26 @@ const PREFIXES = [
 
 
 const PASSIVE_NODES = [];
-function generateNodes() {
+const OPTION_TYPES = [
+    { id: 'atk', name: 'ATK+', base: 2 },
+    { id: 'def', name: 'DEF+', base: 1 },
+    { id: 'hp', name: 'HP+', base: 5 },
+    { id: 'atkPct', name: 'ATK%', base: 0.01 },
+    { id: 'defPct', name: 'DEF%', base: 0.01 },
+    { id: 'hpPct', name: 'HP%', base: 0.02 },
+    { id: 'crit', name: 'CRI%', base: 0.005 },
+    { id: 'avoid', name: 'AVO%', base: 0.005 },
+    { id: 'skillDmg', name: 'SKL%', base: 0.02 }
+];
+
+function getOptionValue(typeId, lvl, rarity) {
+    const type = OPTION_TYPES.find(t => t.id === typeId);
+    const rMult = rarity ? rarity.mult : 1;
+    const base = type.base;
+    const isPct = typeId.includes('Pct') || ['crit', 'avoid', 'skillDmg'].includes(typeId);
+    let val = base * (1 + lvl * 0.1) * (0.5 + Math.random() * rMult);
+    return isPct ? parseFloat(val.toFixed(3)) : Math.floor(val);
+}
     PASSIVE_NODES.length = 0;
     PASSIVE_NODES.push({ id: 'start', name: '起点', pos: { x: 0, y: 0 }, effect: { atk: 5 }, cost: 0, req: [] });
     
@@ -335,7 +354,18 @@ function getHeroTotalStats() {
                 if (b.skillDmg) skillDmgMult += b.skillDmg;
                 if (b.statsBonus) { atk *= (1+b.statsBonus); def *= (1+b.statsBonus); maxHp *= (1+b.statsBonus); }
             }
-            (i.options || []).forEach(o => { if (o.type === 'atkPct') atk *= (1 + o.val); if (o.type === 'atk') atk += o.val; });
+            // Options (all 4 slots)
+            (i.options || []).forEach(o => { 
+                if (o.id === 'atk') atk += o.val;
+                if (o.id === 'def') def += o.val;
+                if (o.id === 'hp') maxHp += o.val;
+                if (o.id === 'atkPct') atk *= (1 + o.val);
+                if (o.id === 'defPct') def *= (1 + o.val);
+                if (o.id === 'hpPct') maxHp *= (1 + o.val);
+                if (o.id === 'crit') crit += o.val;
+                if (o.id === 'avoid') avoid += o.val;
+                if (o.id === 'skillDmg') skillDmgMult += o.val;
+            });
             (i.sockets || []).forEach(sid => { const r = RUNES.find(rx => rx.id === sid); if (r && r.bonus.atkPct) atk *= (1+r.bonus.atkPct); });
             if (i.prefix) setCounts[i.prefix] = (setCounts[i.prefix] || 0) + 1;
         }
@@ -464,6 +494,10 @@ function generateLoot(fl) {
         element: hasElem ? elemKeys[randomInt(0, elemKeys.length - 1)] : 'none', 
         value: fl * 10 
     };
+    for (let i = 0; i < 4; i++) {
+        const type = OPTION_TYPES[randomInt(0, OPTION_TYPES.length - 1)];
+        item.options.push({ id: type.id, name: type.name, val: getOptionValue(type.id, fl, rar) });
+    }
     if (type === 'weapon') { 
         const w = WEAPON_TYPES[randomInt(0, 3)]; 
         item.weaponType = w.id; 
@@ -800,12 +834,20 @@ function openItemModal(val, isEquipped) {
         refineBtn.classList.toggle("hidden", item.type === 'rune');
         refineBtn.innerText = `強化する (${(item.lvl || 1) * 100}G)`;
     }
-    const opts = document.getElementById("modal-item-options"); opts.innerHTML = "";
-    (item.options || []).forEach((o, idx) => {
-        const d = document.createElement("div"); d.className = "stat-item mt-1";
-        d.innerHTML = `<span>${o.type}: ${o.val}</span><button class="btn-sm" onclick="window.rerollOption('${val}', ${isEquipped}, ${idx})">再抽選</button>`;
-        opts.appendChild(d);
-    });
+    const optBox = document.getElementById("modal-item-options");
+    if (optBox) {
+        optBox.innerHTML = "<h4>オプション (4枠)</h4>";
+        (item.options || []).forEach((o, i) => {
+            const div = document.createElement("div"); div.className = "stat-item mt-1";
+            const isPct = o.id.includes('Pct') || ['crit', 'avoid', 'skillDmg'].includes(o.id);
+            const displayVal = isPct ? (o.val * 100).toFixed(1) + '%' : o.val;
+            const cost = Math.floor(100 * (item.lvl || 1) * (item.rarity ? item.rarity.mult : 1));
+            div.innerHTML = `<span style="font-size:0.8rem">${o.name}: ${displayVal}</span>`;
+            const btn = document.createElement("button"); btn.className = "btn-sm"; btn.innerText = `${cost}G`;
+            btn.onclick = () => window.rerollOption(val, isEquipped, i);
+            div.appendChild(btn); optBox.appendChild(div);
+        });
+    }
     
     const socks = document.getElementById("modal-item-sockets"); socks.innerHTML = "";
     if (item.socketCount > 0) {
@@ -900,7 +942,19 @@ function nextFloor() { state.floor++; currentEnemy = null; canProceed = false; i
 window.hireMercenary = (i) => { const m = availableMercs[i]; if (state.gold >= m.price && state.party.length < 3) { state.gold -= m.price; state.party.push(m); availableMercs.splice(i, 1); state.achievements.total_hired = (state.achievements.total_hired || 0) + 1; updateAllUI(); saveGame(); } };
 window.dismissMercenary = (i) => { state.party.splice(i, 1); updateAllUI(); saveGame(); };
 window.buyKamuiUpgrade = (k) => { if (state.kamui >= 1) { state.kamui -= 1; state.kamuiUpgrades[k]++; updateAllUI(); saveGame(); } };
-window.rerollOption = (val, isEquipped, idx) => { const item = isEquipped ? state.equipment[val] : state.inventory[val]; if (state.gold >= 100) { state.gold -= 100; item.options[idx].val = randomInt(1, 10); updateAllUI(); openItemModal(val, isEquipped); saveGame(); } };
+window.rerollOption = (val, isEquipped, idx) => { 
+    const item = isEquipped ? state.equipment[val] : state.inventory[val]; 
+    if (!item) return;
+    const cost = Math.floor(100 * (item.lvl || 1) * (item.rarity ? item.rarity.mult : 1));
+    if (state.gold >= cost) { 
+        state.gold -= cost; 
+        const type = OPTION_TYPES[randomInt(0, OPTION_TYPES.length - 1)];
+        item.options[idx] = { id: type.id, name: type.name, val: getOptionValue(type.id, item.lvl, item.rarity) };
+        updateAllUI(); openItemModal(val, isEquipped); saveGame(); 
+    } else {
+        alert("ゴールドが足りません！");
+    }
+};
 
 let selectedSocket = null;
 window.removeRune = (val, isEquipped, sIdx) => {
