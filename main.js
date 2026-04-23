@@ -518,6 +518,7 @@ function onEnemyDefeated() {
     canProceed = true; logMessage(`${currentEnemy.name} 撃破！`, "system");
     const baseName = currentEnemy.name.replace("[BOSS] ", "").replace("[レア] ", "");
     state.achievements.kills[baseName] = (state.achievements.kills[baseName] || 0) + 1; state.achievements.totalKills++;
+    
     // Casino countdown
     if (state.casino.phase === 'waiting' && state.casino.battlesLeft > 0) {
         state.casino.battlesLeft--;
@@ -526,12 +527,32 @@ function onEnemyDefeated() {
             logMessage('🎰 ミームコインの結果が出ました！カジノタブで精算してください。', 'loot');
         }
     }
-    let expG = Math.floor(10 * Math.pow(1.03, state.floor)); let goldG = Math.floor(5 * Math.pow(1.03, state.floor));
-    if (currentEnemy.isBoss) { expG *= 3; goldG *= 3; state.achievements.total_boss_kills++; }
-    state.hero.exp += expG; state.hero.classExp[state.hero.classId] += expG; state.gold += goldG;
+
+    const stats = getHeroTotalStats();
+    let expG = Math.floor(10 * Math.pow(1.03, state.floor) * stats.expMult);
+    let goldG = Math.floor(5 * Math.pow(1.03, state.floor) * stats.goldMult);
+    
+    if (currentEnemy.isBoss) { 
+        expG *= 3; goldG *= 3; 
+        state.achievements.total_boss_kills++; 
+    }
+    
+    state.hero.exp += expG; 
+    state.hero.classExp[state.hero.classId] += expG; 
+    state.gold += goldG;
+    
     checkLevelUp();
-    if (state.currentDungeon === 'rune') { if (Math.random() < 0.4 || currentEnemy.isBoss) generateRune(); }
-    else { if (Math.random() < 0.3 || currentEnemy.isBoss) generateLoot(state.floor); }
+    
+    // Apply drop rate multiplier
+    const dropChance = 0.3 * stats.dropMult;
+    const runeChance = 0.4 * stats.dropMult;
+
+    if (state.currentDungeon === 'rune') { 
+        if (Math.random() < runeChance || currentEnemy.isBoss) generateRune(); 
+    }
+    else { 
+        if (Math.random() < dropChance || currentEnemy.isBoss) generateLoot(state.floor); 
+    }
     updateAllUI(); saveGame();
 }
 
@@ -704,6 +725,23 @@ function updateStatusUI() {
             statusBox.appendChild(elemDiv);
         }
         elemDiv.innerHTML = `<div style="font-size:0.7rem; color:var(--text-muted)">属性: <span style="color:${atkElemInfo.color}">攻:${atkElemInfo.name}</span> / <span style="color:${defElemInfo.color}">防:${defElemInfo.name}</span></div>`;
+    }
+
+    // Multipliers Display
+    let multDiv = document.getElementById("hero-multipliers-display");
+    if (!multDiv) {
+        multDiv = document.createElement("div"); multDiv.id = "hero-multipliers-display"; multDiv.className = "mt-1";
+        multDiv.style = "font-size: 0.7rem; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 4px; color: var(--text-muted);";
+        if (statusBox) statusBox.appendChild(multDiv);
+    }
+    if (multDiv) {
+        multDiv.innerHTML = `
+            <div style="display:flex; justify-content:space-between;">
+                <span>Gold: x${(stats.goldMult || 1).toFixed(2)}</span>
+                <span>Drop: x${(stats.dropMult || 1).toFixed(2)}</span>
+                <span>Exp: x${(stats.expMult || 1).toFixed(2)}</span>
+            </div>
+        `;
     }
     
     const tList = document.getElementById("title-list"); if (tList) {
@@ -1222,6 +1260,9 @@ function updateCasinoUI() {
     if (!coinsEl) return;
 
     const { phase, coins, battlesLeft, totalInvested } = state.casino;
+    
+    const casinoGoldEl = document.getElementById('casino-gold-amount');
+    if (casinoGoldEl) casinoGoldEl.innerText = state.gold.toLocaleString();
 
     if (phase === 'idle' || phase === 'settled') {
         statusEl.innerHTML = '「新ラウンド」でコインが生成されます';
