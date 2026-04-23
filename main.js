@@ -701,124 +701,134 @@ window.equipRune = (invIdx) => {
     document.getElementById("rune-modal").classList.add("hidden");
     updateAllUI(); openItemModal(selectedSocket.val, selectedSocket.isEquipped); saveGame();
 };
+// --- Helpers ---
+const $ = id => document.getElementById(id);
+const setClick = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+
+function switchDungeon(type) {
+    if (state.currentDungeon === type) return;
+    state.currentDungeon = type;
+    $("btn-dungeon-normal").classList.toggle("active", type === 'normal');
+    $("btn-dungeon-rune").classList.toggle("active", type === 'rune');
+    state.floor = 1; currentEnemy = null; updateAllUI(); startBattle(); saveGame();
+}
+
+function sellFiltered(filterFn, label) {
+    let sold = 0, gain = 0;
+    state.inventory = state.inventory.filter(i => {
+        if (filterFn(i)) { gain += i.value; sold++; return false; }
+        return true;
+    });
+    if (sold > 0) { state.gold += gain; updateAllUI(); saveGame(); alert(`${label}${sold}個売却し、${gain}G獲得しました。`); }
+    else { alert(`売却できる${label}装備がありません。`); }
+}
+
+function handlePrestige() {
+    if (state.floor < 10) { alert("10階以降で転生可能です"); return; }
+    if (!confirm("本当に転生しますか？神威ポイントを獲得し、進行階層とゴールドがリセットされます（装備品は維持されます）。")) return;
+    state.kamui += Math.floor(state.floor / 5);
+    state.floor = 1; state.gold = 0;
+    currentEnemy = null; updateAllUI(); startBattle(); saveGame();
+}
+
+function handleEquipItem() {
+    if (!selectedItemSource || selectedItemSource.isEquipped) return;
+    const idx = selectedItemSource.val;
+    const item = state.inventory[idx];
+    if (state.equipment[item.type]) state.inventory.push(state.equipment[item.type]);
+    state.equipment[item.type] = item;
+    state.inventory.splice(idx, 1);
+    closeItemModal(); updateAllUI(); saveGame();
+}
+
+function handleRefineItem() {
+    if (!selectedItemSource) return;
+    const { val, isEquipped } = selectedItemSource;
+    const item = isEquipped ? state.equipment[val] : state.inventory[val];
+    if (!item || item.type === 'rune') return;
+    const cost = (item.lvl || 1) * 100;
+    if (state.gold < cost) { alert("お金が足りません！"); return; }
+    state.gold -= cost; item.lvl = (item.lvl || 1) + 1;
+    ['atk', 'def', 'hp'].forEach(s => { if (item[s]) item[s] = Math.floor(item[s] * 1.1) + 1; });
+    item.value = Math.floor(item.value * 1.5);
+    updateAllUI(); openItemModal(val, isEquipped); saveGame();
+}
+
+function handleSellItem() {
+    if (!selectedItemSource || selectedItemSource.isEquipped) return;
+    const idx = selectedItemSource.val;
+    state.gold += state.inventory[idx].value;
+    state.inventory.splice(idx, 1);
+    closeItemModal(); updateAllUI(); saveGame();
+}
+
 // --- Init ---
 document.addEventListener("DOMContentLoaded", () => {
     loadGame();
+
     // Tab switching
     document.querySelectorAll(".tab-btn").forEach(b => b.onclick = () => {
         document.querySelectorAll(".tab-btn").forEach(x => x.classList.remove("active"));
         document.querySelectorAll(".tab-content").forEach(x => x.classList.remove("active"));
-        b.classList.add("active"); document.getElementById(b.dataset.target).classList.add("active");
+        b.classList.add("active"); $(b.dataset.target).classList.add("active");
         if (b.dataset.target === 'tab-star') setTimeout(drawPassiveBoard, 50);
     });
-    
-    // Canvas interaction
-    const canvas = document.getElementById("passive-canvas");
-    canvas.onmousedown = (e) => { isDragging = true; lastMousePos = { x: e.clientX, y: e.clientY }; dragMoved = false; };
-    window.onmousemove = (e) => {
+
+    // Canvas drag (mouse)
+    const canvas = $("passive-canvas");
+    canvas.onmousedown = e => { isDragging = true; lastMousePos = { x: e.clientX, y: e.clientY }; dragMoved = false; };
+    window.onmousemove = e => {
         if (!isDragging) return;
-        const dx = e.clientX - lastMousePos.x; const dy = e.clientY - lastMousePos.y;
+        const dx = e.clientX - lastMousePos.x, dy = e.clientY - lastMousePos.y;
         if (Math.abs(dx) > 5 || Math.abs(dy) > 5) dragMoved = true;
-        boardOffset.x += dx; boardOffset.y += dy; lastMousePos = { x: e.clientX, y: e.clientY };
+        boardOffset.x += dx; boardOffset.y += dy;
+        lastMousePos = { x: e.clientX, y: e.clientY };
         drawPassiveBoard();
     };
-    window.onmouseup = (e) => { if (!dragMoved && isDragging) handleBoardClick(e.clientX, e.clientY); isDragging = false; };
-    
-    // Touch interaction
-    canvas.ontouchstart = (e) => { isDragging = true; lastMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY }; dragMoved = false; };
-    canvas.ontouchmove = (e) => {
+    window.onmouseup = e => { if (!dragMoved && isDragging) handleBoardClick(e.clientX, e.clientY); isDragging = false; };
+
+    // Canvas drag (touch)
+    canvas.ontouchstart = e => { isDragging = true; lastMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY }; dragMoved = false; };
+    canvas.ontouchmove = e => {
         if (!isDragging) return;
-        const dx = e.touches[0].clientX - lastMousePos.x; const dy = e.touches[0].clientY - lastMousePos.y;
+        const dx = e.touches[0].clientX - lastMousePos.x, dy = e.touches[0].clientY - lastMousePos.y;
         if (Math.abs(dx) > 5 || Math.abs(dy) > 5) dragMoved = true;
-        boardOffset.x += dx; boardOffset.y += dy; lastMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        boardOffset.x += dx; boardOffset.y += dy;
+        lastMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         drawPassiveBoard(); e.preventDefault();
     };
-    canvas.ontouchend = (e) => { if (!dragMoved && isDragging) handleBoardClick(lastMousePos.x, lastMousePos.y); isDragging = false; };
+    canvas.ontouchend = () => { if (!dragMoved && isDragging) handleBoardClick(lastMousePos.x, lastMousePos.y); isDragging = false; };
 
-    const setClick = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
-    
-    setClick("btn-attack", executeAttack);
-    setClick("btn-toggle-auto", () => { state.isAutoMode = !state.isAutoMode; updateBattleControls(); });
-    setClick("btn-open-skills", openSkillModal);
-    setClick("btn-close-skill-modal", closeSkillModal);
-    setClick("btn-next-floor", nextFloor);
-    setClick("btn-close-modal", closeItemModal);
-    setClick("btn-close-rune-modal", () => document.getElementById("rune-modal").classList.add("hidden"));
-    
-    const classSelect = document.getElementById("hero-class-select");
-    if (classSelect) classSelect.onchange = (e) => { state.hero.classId = e.target.value; updateAllUI(); saveGame(); };
-    
-    setClick("btn-save-game", () => { saveGame(); alert("セーブしました"); });
-    setClick("btn-reset-game", () => { if(confirm("本当にデータを初期化しますか？")) { localStorage.removeItem(SAVE_KEY); location.reload(); } });
-    setClick("btn-export-code", exportSaveCode);
-    setClick("btn-import-code", importSaveCode);
-    
-    setClick("btn-dungeon-normal", () => switchDungeon('normal'));
-    setClick("btn-dungeon-rune", () => switchDungeon('rune'));
-    setClick("btn-retreat", () => { if (state.floor > 1) { state.floor--; currentEnemy = null; startBattle(); } });
-    document.getElementById("btn-prestige").onclick = () => {
-        if (state.floor < 10) { alert("10階以降で転生可能です"); return; }
-        if (confirm("本当に転生しますか？神威ポイントを獲得し、進行度と所持品の一部がリセットされます。")) {
-            state.kamui += Math.floor(state.floor / 5);
-            state.floor = 1; state.gold = 0; state.inventory = []; state.equipment = { weapon: null, armor: null, accessory: null };
-            state.party = []; currentEnemy = null; updateAllUI(); startBattle(); saveGame();
-        }
+    // Button bindings (declarative)
+    const buttons = {
+        "btn-attack":            executeAttack,
+        "btn-toggle-auto":       () => { state.isAutoMode = !state.isAutoMode; updateBattleControls(); },
+        "btn-open-skills":       openSkillModal,
+        "btn-close-skill-modal": closeSkillModal,
+        "btn-next-floor":        nextFloor,
+        "btn-close-modal":       closeItemModal,
+        "btn-close-rune-modal":  () => $("rune-modal").classList.add("hidden"),
+        "btn-save-game":         () => { saveGame(); alert("セーブしました"); },
+        "btn-reset-game":        () => { if (confirm("本当にデータを初期化しますか？")) { localStorage.removeItem(SAVE_KEY); location.reload(); } },
+        "btn-export-code":       exportSaveCode,
+        "btn-import-code":       importSaveCode,
+        "btn-dungeon-normal":    () => switchDungeon('normal'),
+        "btn-dungeon-rune":      () => switchDungeon('rune'),
+        "btn-retreat":           () => { if (state.floor > 1) { state.floor--; currentEnemy = null; startBattle(); } },
+        "btn-prestige":          handlePrestige,
+        "btn-equip-item":        handleEquipItem,
+        "btn-refine-item":       handleRefineItem,
+        "btn-sell-item":         handleSellItem,
+        "btn-sell-weaker":       () => {
+            const totalStats = i => (i.atk||0) + (i.def||0) + (i.hp||0);
+            sellFiltered(i => i.type !== 'rune' && state.equipment[i.type] && totalStats(i) < totalStats(state.equipment[i.type]), "");
+        },
+        "btn-sell-all":          () => sellFiltered(i => i.type !== 'rune' && i.rarity && i.rarity.name === 'コモン', "コモン"),
     };
-    
-    document.getElementById("btn-sell-weaker").onclick = () => {
-        let sold = 0, gain = 0;
-        const getStats = i => (i.atk||0)+(i.def||0)+(i.hp||0);
-        state.inventory = state.inventory.filter(i => {
-            if(i.type === 'rune') return true;
-            const eq = state.equipment[i.type];
-            if(eq && getStats(i) < getStats(eq)) { gain += i.value; sold++; return false; }
-            return true;
-        });
-        if(sold > 0) { state.gold += gain; updateAllUI(); saveGame(); alert(`${sold}個売却し、${gain}G獲得しました。`); }
-        else { alert("売却できる弱い装備がありません。"); }
-    };
-    document.getElementById("btn-sell-all").onclick = () => {
-        let sold = 0, gain = 0;
-        state.inventory = state.inventory.filter(i => {
-            if(i.type !== 'rune' && i.rarity && i.rarity.name === 'コモン') { gain += i.value; sold++; return false; }
-            return true;
-        });
-        if(sold > 0) { state.gold += gain; updateAllUI(); saveGame(); alert(`コモン装備を${sold}個売却し、${gain}G獲得しました。`); }
-        else { alert("売却できるコモン装備がありません。"); }
-    };
-    
-    document.getElementById("btn-equip-item").onclick = () => {
-        if (!selectedItemSource) return;
-        const { val, isEquipped } = selectedItemSource; if (isEquipped) return;
-        const item = state.inventory[val]; if (state.equipment[item.type]) state.inventory.push(state.equipment[item.type]);
-        state.equipment[item.type] = item; state.inventory.splice(val, 1); closeItemModal(); updateAllUI(); saveGame();
-    };
-    document.getElementById("btn-refine-item").onclick = () => {
-        if (!selectedItemSource) return;
-        const { val, isEquipped } = selectedItemSource;
-        const item = isEquipped ? state.equipment[val] : state.inventory[val];
-        if (!item || item.type === 'rune') return;
-        const cost = (item.lvl || 1) * 100;
-        if (state.gold >= cost) {
-            state.gold -= cost; item.lvl = (item.lvl || 1) + 1;
-            ['atk', 'def', 'hp'].forEach(s => { if(item[s]) item[s] = Math.floor(item[s] * 1.1) + 1; });
-            item.value = Math.floor(item.value * 1.5);
-            updateAllUI(); openItemModal(val, isEquipped); saveGame();
-        } else alert("お金が足りません！");
-    };
-    document.getElementById("btn-sell-item").onclick = () => {
-        if (!selectedItemSource) return;
-        const { val, isEquipped } = selectedItemSource; if (isEquipped) return;
-        state.gold += state.inventory[val].value; state.inventory.splice(val, 1); closeItemModal(); updateAllUI(); saveGame();
-    };
-    
-    function switchDungeon(type) {
-        if (state.currentDungeon === type) return;
-        state.currentDungeon = type;
-        document.getElementById("btn-dungeon-normal").classList.toggle("active", type === 'normal');
-        document.getElementById("btn-dungeon-rune").classList.toggle("active", type === 'rune');
-        state.floor = 1; currentEnemy = null; updateAllUI(); startBattle(); saveGame();
-    }
-    
+    for (const [id, fn] of Object.entries(buttons)) setClick(id, fn);
+
+    const classSelect = $("hero-class-select");
+    if (classSelect) classSelect.onchange = e => { state.hero.classId = e.target.value; updateAllUI(); saveGame(); };
+
     startBattle();
 });
