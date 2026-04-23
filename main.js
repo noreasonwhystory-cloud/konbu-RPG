@@ -108,6 +108,9 @@ const WEAPON_TYPES = [
     { id: 'staff', name: '杖', bonus: { skillDmg: 0.2, hpPct: 0.1 }, desc: 'Skill+20%/HP+10%' }
 ];
 
+const PREFIXES = ["古びた", "鋭い", "丈夫な", "名工の", "伝説の", "神話の", "至高の", "究極の"];
+
+
 const PASSIVE_NODES = [];
 function generateNodes() {
     PASSIVE_NODES.push({ id: 'start', name: '起点', pos: { x: 0, y: 0 }, effect: { atk: 5 }, cost: 0, req: [] });
@@ -157,9 +160,9 @@ function loadGame() {
 function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
 function getElementMult(atkElem, defElem) {
-    if (atkElem === 'none' || defElem === 'none') return 1.0;
-    if (ELEMENTS[atkElem].weakTo === defElem) return 0.5;
-    if (ELEMENTS[defElem].weakTo === atkElem) return 1.5;
+    if (!atkElem || !defElem || atkElem === 'none' || defElem === 'none') return 1.0;
+    if (ELEMENTS[atkElem] && ELEMENTS[atkElem].weakTo === defElem) return 0.5;
+    if (ELEMENTS[defElem] && ELEMENTS[defElem].weakTo === atkElem) return 1.5;
     return 1.0;
 }
 
@@ -284,16 +287,38 @@ function checkLevelUp() {
 function generateLoot(fl) {
     if (state.inventory.length >= state.maxInventory) return;
     const type = ['weapon', 'armor', 'accessory'][randomInt(0, 2)];
-    const rar = RARITIES[randomInt(0, 4)];
-    const item = { id: Date.now(), type, rarity: rar, lvl: fl, name: `[Lv.${fl}] ${rar.name}装備`, options: [], sockets: [], socketCount: randomInt(0, 3), element: 'none', value: fl * 10 };
-    if (type === 'weapon') { const w = WEAPON_TYPES[randomInt(0, 3)]; item.weaponType = w.id; item.name = `[Lv.${fl}] ${w.name}`; item.atk = fl * 5; }
+    
+    // Weighted Rarity Selection
+    const roll = randomInt(1, 100);
+    let rar = RARITIES[0];
+    let cumulative = 0;
+    for (const r of RARITIES) {
+        cumulative += r.weight;
+        if (roll <= cumulative) { rar = r; break; }
+    }
+
+    const pref = PREFIXES[randomInt(0, PREFIXES.length - 1)];
+    const item = { 
+        id: Date.now(), type, rarity: rar, lvl: fl, prefix: pref,
+        name: `${rar.name}装備`, 
+        options: [], sockets: [], socketCount: randomInt(0, 3), element: 'none', value: fl * 10 
+    };
+    if (type === 'weapon') { 
+        const w = WEAPON_TYPES[randomInt(0, 3)]; 
+        item.weaponType = w.id; 
+        item.name = w.name; 
+        item.atk = fl * 5; 
+    }
     else if (type === 'armor') { item.def = fl * 2; } else { item.hp = fl * 10; }
     for(let s=0; s<item.socketCount; s++) item.sockets.push(null);
     state.inventory.push(item); state.achievements.total_loot++;
 }
 function generateRune() {
     if (state.inventory.length >= state.maxInventory) return;
-    const r = RUNES[randomInt(0, 2)]; state.inventory.push({...r, type: 'rune', value: 100}); state.achievements.konbu_count++;
+    const r = RUNES[randomInt(0, RUNES.length - 1)]; 
+    const pref = PREFIXES[randomInt(4, PREFIXES.length - 1)]; // Runes get better prefixes
+    state.inventory.push({...r, type: 'rune', prefix: pref, value: 100}); 
+    state.achievements.konbu_count++;
 }
 
 // --- UI ---
@@ -364,7 +389,24 @@ function updateInventoryUI() {
     document.getElementById("inv-count").innerText = state.inventory.length;
     state.inventory.forEach((i, idx) => {
         const d = document.createElement("div"); d.className = `inv-item ${i.rarity ? i.rarity.colorClass : ""}`;
-        d.innerText = i.name.split(" ").pop(); // Show type like "剣" or "装備"
+        
+        // Ensure prefix exists (migration for older items)
+        if (!i.prefix) i.prefix = PREFIXES[randomInt(0, 2)];
+        
+        // Clean up legacy [Lv.X] from name
+        let cleanName = (i.name || "装備").replace(/^\[Lv\.\d+\]\s*/, "");
+
+        const fullName = `${i.prefix}の${cleanName}`;
+        const displayLabel = i.type === 'rune' ? cleanName : `+${i.lvl||1}\n${fullName}`;
+        
+        d.innerText = displayLabel;
+        d.style.fontSize = "0.5rem";
+        d.style.lineHeight = "1.1";
+        d.style.display = "flex";
+        d.style.flexDirection = "column";
+        d.style.justifyContent = "center";
+        d.style.whiteSpace = "pre-wrap";
+        d.title = fullName;
         d.onclick = () => openItemModal(idx, false);
         list.appendChild(d);
     });
@@ -373,7 +415,11 @@ function updateInventoryUI() {
 function updateEquipmentUI() {
     ['weapon', 'armor', 'accessory'].forEach(type => {
         const i = state.equipment[type]; const el = document.getElementById(`equip-${type}`);
-        if (i) { el.querySelector('.slot-item').innerText = i.name; el.querySelector('.slot-item').className = `slot-item val ${i.rarity.colorClass}`; }
+        if (i) { 
+            const fullName = `${i.prefix ? i.prefix + 'の' : ''}${i.name} +${i.lvl}`;
+            el.querySelector('.slot-item').innerText = fullName; 
+            el.querySelector('.slot-item').className = `slot-item val ${i.rarity.colorClass}`; 
+        }
         else { el.querySelector('.slot-item').innerText = "なし"; el.querySelector('.slot-item').className = "slot-item val"; }
         el.onclick = () => { if (i) openItemModal(type, true); };
     });
@@ -400,20 +446,39 @@ function updateKamuiUI() {
 
 function drawPassiveBoard() {
     const canvas = document.getElementById("passive-canvas"); if (!canvas) return;
-    const ctx = canvas.getContext("2d");
     const container = canvas.parentElement;
-    canvas.width = container.clientWidth; canvas.height = container.clientHeight;
+    if (container.clientWidth === 0 || container.clientHeight === 0) return; // Skip if hidden
+    if (canvas.width !== container.clientWidth) canvas.width = container.clientWidth;
+    if (canvas.height !== container.clientHeight) canvas.height = container.clientHeight;
     
+    const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
-    ctx.translate(canvas.width/2 + boardOffset.x, canvas.height/2 + boardOffset.y);
+    
+    const cx = canvas.width/2 + boardOffset.x;
+    const cy = canvas.height/2 + boardOffset.y;
+    ctx.translate(cx, cy);
+    
+    // Viewport culling bounds (in local space)
+    const minX = -cx - 50; const maxX = canvas.width - cx + 50;
+    const minY = -cy - 50; const maxY = canvas.height - cy + 50;
+    
+    // Create map for O(1) lookups if not exists
+    if (!window.PASSIVE_NODES_MAP) {
+        window.PASSIVE_NODES_MAP = {};
+        PASSIVE_NODES.forEach(n => window.PASSIVE_NODES_MAP[n.id] = n);
+    }
     
     // Draw Lines
     ctx.lineWidth = 2;
     PASSIVE_NODES.forEach(n => {
+        // Simple bounding box cull for lines (if both points are offscreen, rough cull)
+        // For simplicity, we just check if the node itself is somewhat near screen
+        if (n.pos.x < minX - 200 || n.pos.x > maxX + 200 || n.pos.y < minY - 200 || n.pos.y > maxY + 200) return;
+        
         const unlocked = state.unlockedNodes.includes(n.id);
         n.req.forEach(rid => {
-            const r = PASSIVE_NODES.find(nx => nx.id === rid);
+            const r = window.PASSIVE_NODES_MAP[rid];
             if (r) {
                 ctx.beginPath(); ctx.moveTo(n.pos.x, n.pos.y); ctx.lineTo(r.pos.x, r.pos.y);
                 ctx.strokeStyle = (unlocked && state.unlockedNodes.includes(rid)) ? "#fbbf24" : "rgba(255,255,255,0.05)";
@@ -424,6 +489,8 @@ function drawPassiveBoard() {
     
     // Draw Nodes
     PASSIVE_NODES.forEach(n => {
+        if (n.pos.x < minX || n.pos.x > maxX || n.pos.y < minY || n.pos.y > maxY) return;
+        
         const unlocked = state.unlockedNodes.includes(n.id);
         const canUnlock = state.passivePoints >= n.cost && (n.req.length === 0 || n.req.some(rid => state.unlockedNodes.includes(rid)));
         
@@ -496,8 +563,16 @@ function openItemModal(val, isEquipped) {
     const item = isEquipped ? state.equipment[val] : state.inventory[val];
     if (!item) return;
     document.getElementById("item-modal").classList.remove("hidden");
-    document.getElementById("modal-item-name").innerText = item.name;
-    document.getElementById("modal-item-stats").innerHTML = `Lv.${item.lvl}<br>ATK: ${item.atk||0} DEF: ${item.def||0} HP: ${item.hp||0}`;
+    document.getElementById("modal-item-name").innerText = `${item.prefix ? item.prefix + 'の' : ''}${item.name} ${item.type !== 'rune' ? '+' + (item.lvl || 1) : ''}`;
+    document.getElementById("modal-item-name").className = item.rarity ? item.rarity.colorClass : "";
+    document.getElementById("modal-item-stats").innerHTML = `Lv.${item.lvl||1}<br>ATK: ${item.atk||0} DEF: ${item.def||0} HP: ${item.hp||0}`;
+    
+    document.getElementById("btn-equip-item").classList.toggle("hidden", isEquipped || item.type === 'rune');
+    const refineBtn = document.getElementById("btn-refine-item");
+    if (refineBtn) {
+        refineBtn.classList.toggle("hidden", item.type === 'rune');
+        refineBtn.innerText = `強化する (${(item.lvl || 1) * 100}G)`;
+    }
     const opts = document.getElementById("modal-item-options"); opts.innerHTML = "";
     (item.options || []).forEach((o, idx) => {
         const d = document.createElement("div"); d.className = "stat-item mt-1";
@@ -508,7 +583,8 @@ function openItemModal(val, isEquipped) {
     const socks = document.getElementById("modal-item-sockets"); socks.innerHTML = "";
     if (item.socketCount > 0) {
         socks.innerHTML = "<h4>ソケット:</h4>";
-        item.sockets.forEach((sId, sIdx) => {
+        for (let sIdx = 0; sIdx < item.socketCount; sIdx++) {
+            const sId = item.sockets ? item.sockets[sIdx] : null;
             const d = document.createElement("div"); d.className = "stat-item mt-1";
             if (sId) {
                 const rune = RUNES.find(r => r.id === sId);
@@ -517,7 +593,7 @@ function openItemModal(val, isEquipped) {
                 d.innerHTML = `<span>空きソケット</span><button class="btn-sm" onclick="window.openRuneSelect('${val}', ${isEquipped}, ${sIdx})">装着</button>`;
             }
             socks.appendChild(d);
-        });
+        }
     }
 }
 function closeItemModal() { document.getElementById("item-modal").classList.add("hidden"); }
@@ -575,6 +651,7 @@ window.equipRune = (invIdx) => {
     if (!selectedSocket) return;
     const item = selectedSocket.isEquipped ? state.equipment[selectedSocket.val] : state.inventory[selectedSocket.val];
     const rune = state.inventory[invIdx];
+    if (!item.sockets) item.sockets = [];
     item.sockets[selectedSocket.sIdx] = rune.id;
     state.inventory.splice(invIdx, 1);
     document.getElementById("rune-modal").classList.add("hidden");
@@ -626,17 +703,72 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("btn-save-game").onclick = () => { saveGame(); alert("セーブしました"); };
     document.getElementById("btn-reset-game").onclick = () => { if(confirm("本当にデータを初期化しますか？")) { localStorage.removeItem(SAVE_KEY); location.reload(); } };
     
+    document.getElementById("btn-dungeon-normal").onclick = () => switchDungeon('normal');
+    document.getElementById("btn-dungeon-rune").onclick = () => switchDungeon('rune');
+    document.getElementById("btn-retreat").onclick = () => { if (state.floor > 1) { state.floor--; currentEnemy = null; startBattle(); } };
+    document.getElementById("btn-prestige").onclick = () => {
+        if (state.floor < 10) { alert("10階以降で転生可能です"); return; }
+        if (confirm("本当に転生しますか？神威ポイントを獲得し、進行度と所持品の一部がリセットされます。")) {
+            state.kamui += Math.floor(state.floor / 5);
+            state.floor = 1; state.gold = 0; state.inventory = []; state.equipment = { weapon: null, armor: null, accessory: null };
+            state.party = []; currentEnemy = null; updateAllUI(); startBattle(); saveGame();
+        }
+    };
+    
+    document.getElementById("btn-sell-weaker").onclick = () => {
+        let sold = 0, gain = 0;
+        const getStats = i => (i.atk||0)+(i.def||0)+(i.hp||0);
+        state.inventory = state.inventory.filter(i => {
+            if(i.type === 'rune') return true;
+            const eq = state.equipment[i.type];
+            if(eq && getStats(i) < getStats(eq)) { gain += i.value; sold++; return false; }
+            return true;
+        });
+        if(sold > 0) { state.gold += gain; updateAllUI(); saveGame(); alert(`${sold}個売却し、${gain}G獲得しました。`); }
+        else { alert("売却できる弱い装備がありません。"); }
+    };
+    document.getElementById("btn-sell-all").onclick = () => {
+        let sold = 0, gain = 0;
+        state.inventory = state.inventory.filter(i => {
+            if(i.type !== 'rune' && i.rarity && i.rarity.name === 'コモン') { gain += i.value; sold++; return false; }
+            return true;
+        });
+        if(sold > 0) { state.gold += gain; updateAllUI(); saveGame(); alert(`コモン装備を${sold}個売却し、${gain}G獲得しました。`); }
+        else { alert("売却できるコモン装備がありません。"); }
+    };
+    
     document.getElementById("btn-equip-item").onclick = () => {
         if (!selectedItemSource) return;
         const { val, isEquipped } = selectedItemSource; if (isEquipped) return;
         const item = state.inventory[val]; if (state.equipment[item.type]) state.inventory.push(state.equipment[item.type]);
         state.equipment[item.type] = item; state.inventory.splice(val, 1); closeItemModal(); updateAllUI(); saveGame();
     };
+    document.getElementById("btn-refine-item").onclick = () => {
+        if (!selectedItemSource) return;
+        const { val, isEquipped } = selectedItemSource;
+        const item = isEquipped ? state.equipment[val] : state.inventory[val];
+        if (!item || item.type === 'rune') return;
+        const cost = (item.lvl || 1) * 100;
+        if (state.gold >= cost) {
+            state.gold -= cost; item.lvl = (item.lvl || 1) + 1;
+            ['atk', 'def', 'hp'].forEach(s => { if(item[s]) item[s] = Math.floor(item[s] * 1.1) + 1; });
+            item.value = Math.floor(item.value * 1.5);
+            updateAllUI(); openItemModal(val, isEquipped); saveGame();
+        } else alert("お金が足りません！");
+    };
     document.getElementById("btn-sell-item").onclick = () => {
         if (!selectedItemSource) return;
         const { val, isEquipped } = selectedItemSource; if (isEquipped) return;
         state.gold += state.inventory[val].value; state.inventory.splice(val, 1); closeItemModal(); updateAllUI(); saveGame();
     };
+    
+    function switchDungeon(type) {
+        if (state.currentDungeon === type) return;
+        state.currentDungeon = type;
+        document.getElementById("btn-dungeon-normal").classList.toggle("active", type === 'normal');
+        document.getElementById("btn-dungeon-rune").classList.toggle("active", type === 'rune');
+        state.floor = 1; currentEnemy = null; updateAllUI(); startBattle(); saveGame();
+    }
     
     startBattle();
 });
