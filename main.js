@@ -368,8 +368,24 @@ function getHeroTotalStats() {
             });
             (i.sockets || []).forEach(sid => { const r = RUNES.find(rx => rx.id === sid); if (r && r.bonus.atkPct) atk *= (1+r.bonus.atkPct); });
             if (i.prefix) setCounts[i.prefix] = (setCounts[i.prefix] || 0) + 1;
+            if (i.rarity) rarCounts[i.rarity.name] = (rarCounts[i.rarity.name] || 0) + 1;
         }
     }
+    // Prefix Set Bonuses
+    for (let p in setCounts) { 
+        const c = setCounts[p];
+        let b = 0;
+        if (c >= 6) b = 0.60; else if (c >= 5) b = 0.35; else if (c >= 4) b = 0.20; else if (c >= 3) b = 0.12; else if (c >= 2) b = 0.05;
+        if (b > 0) { atk *= (1 + b); def *= (1 + b); maxHp *= (1 + b); }
+    }
+    // Rarity Set Bonuses
+    let goldBonus = 1, dropBonus = 1;
+    for (let r in rarCounts) {
+        const c = rarCounts[r];
+        if (c >= 6) { atk *= 1.2; def *= 1.2; maxHp *= 1.2; goldBonus += 0.5; dropBonus += 0.5; }
+        else if (c >= 3) { goldBonus += 0.2; dropBonus += 0.2; }
+    }
+
     state.unlockedNodes.forEach(nid => {
         const n = PASSIVE_NODES.find(nx => nx.id === nid);
         if (n && n.effect) {
@@ -384,8 +400,14 @@ function getHeroTotalStats() {
             if (n.effect.skillDmg) skillDmgMult += n.effect.skillDmg;
         }
     });
-    for (let p in setCounts) { if (setCounts[p] >= 3) atk *= 1.2; }
-    return { atk: Math.floor(atk), def: Math.floor(def), maxHp: Math.floor(maxHp), crit: Math.min(0.8, crit), avoid: Math.min(0.8, avoid), skillDmg: skillDmgMult };
+
+    return { 
+        atk: Math.floor(atk), def: Math.floor(def), maxHp: Math.floor(maxHp), 
+        crit: Math.min(0.8, crit), avoid: Math.min(0.8, avoid), skillDmg: skillDmgMult,
+        goldMult: (1 + (state.kamuiUpgrades.goldBonus || 0) * 0.1) * goldBonus, 
+        dropMult: (1 + (state.kamuiUpgrades.dropRateBonus || 0) * 0.1) * dropBonus,
+        expMult: (1 + (state.kamuiUpgrades.expBonus || 0) * 0.1)
+    };
 }
 
 function updateHeroHP(amount) {
@@ -568,6 +590,37 @@ function updateStatusUI() {
     document.getElementById("hero-def").innerText = stats.def;
     document.getElementById("hero-avoid").innerText = (stats.avoid * 100).toFixed(1) + "%";
     
+    // Set Bonus Display
+    const setListEl = document.getElementById("set-bonus-list");
+    if (setListEl) {
+        let setHtml = "";
+        const sCounts = {}, rCounts = {};
+        for(let k in state.equipment) {
+            const i = state.equipment[k];
+            if(i) {
+                if(i.prefix) sCounts[i.prefix] = (sCounts[i.prefix] || 0) + 1;
+                if(i.rarity) rCounts[i.rarity.name] = (rCounts[i.rarity.name] || 0) + 1;
+            }
+        }
+        for(let p in sCounts) {
+            const c = sCounts[p];
+            if(c >= 2) {
+                let b = (c>=6?60 : c>=5?35 : c>=4?20 : c>=3?12 : 5);
+                setHtml += `<div style="color:var(--success-color)">${p}セット(${c}): 全ステ+${b}%</div>`;
+            }
+        }
+        for(let r in rCounts) {
+            const c = rCounts[r];
+            if(c >= 3) {
+                let gb = (c>=6?50:20);
+                setHtml += `<div style="color:var(--accent-color)">${r}セット(${c}): Gold/Drop+${gb}%${c>=6?'/全ステ+20%':''}</div>`;
+            }
+        }
+        setListEl.innerHTML = setHtml || "なし";
+    }
+    
+
+
     const heroClass = CLASSES[state.hero.classId] || CLASSES.novice;
     const atkEl = (state.equipment.weapon && state.equipment.weapon.element !== 'none') ? state.equipment.weapon.element : heroClass.element;
     const defEl = (state.equipment.armor && state.equipment.armor.element !== 'none') ? state.equipment.armor.element : heroClass.element;
