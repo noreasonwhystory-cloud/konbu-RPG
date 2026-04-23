@@ -181,11 +181,9 @@ main {
 }
 
 /* Status Card */
-.status-card { background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
-.level-display { font-size: 1.2rem; font-weight: bold; margin-bottom: 0.5rem; color: var(--primary-color); }
-.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
 .stat-item { display: flex; justify-content: space-between; font-size: 0.85rem; }
-.stat-item .val { color: var(--accent-color); font-weight: bold; }
+.stat-item .val { font-weight: bold; }
+.lock-indicator { position: absolute; top: 2px; right: 2px; font-size: 0.6rem; color: var(--accent-color); }
 
 /* Inventory */
 #inventory-list {

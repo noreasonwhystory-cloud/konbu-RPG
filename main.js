@@ -447,6 +447,10 @@ function updateInventoryUI() {
         d.style.justifyContent = "center";
         d.style.whiteSpace = "pre-wrap";
         d.title = fullName;
+        if (i.isLocked) {
+            const lock = document.createElement("div"); lock.className = "lock-indicator"; lock.innerText = "🔒";
+            d.appendChild(lock);
+        }
         d.onclick = () => openItemModal(idx, false);
         list.appendChild(d);
     });
@@ -608,6 +612,11 @@ function openItemModal(val, isEquipped) {
     document.getElementById("modal-item-stats").innerHTML = `Lv.${item.lvl||1}<br>ATK: ${item.atk||0} DEF: ${item.def||0} HP: ${item.hp||0}`;
     
     document.getElementById("btn-equip-item").classList.toggle("hidden", isEquipped || item.type === 'rune');
+    const lockBtn = document.getElementById("btn-lock-item");
+    if (lockBtn) {
+        lockBtn.innerText = item.isLocked ? "🔒 ロック解除" : "🔓 ロックする";
+        lockBtn.classList.toggle("hidden", item.type === 'rune');
+    }
     const refineBtn = document.getElementById("btn-refine-item");
     if (refineBtn) {
         refineBtn.classList.toggle("hidden", item.type === 'rune');
@@ -749,7 +758,7 @@ function switchDungeon(type) {
 function sellFiltered(filterFn, label) {
     let sold = 0, gain = 0;
     state.inventory = state.inventory.filter(i => {
-        if (filterFn(i)) { gain += i.value; sold++; return false; }
+        if (!i.isLocked && filterFn(i)) { gain += i.value; sold++; return false; }
         return true;
     });
     if (sold > 0) { state.gold += gain; updateAllUI(); saveGame(); alert(`${label}${sold}個売却し、${gain}G獲得しました。`); }
@@ -790,9 +799,20 @@ function handleRefineItem() {
 function handleSellItem() {
     if (!selectedItemSource || selectedItemSource.isEquipped) return;
     const idx = selectedItemSource.val;
-    state.gold += state.inventory[idx].value;
+    const item = state.inventory[idx];
+    if (item.isLocked) { alert("このアイテムはロックされています。"); return; }
+    state.gold += item.value;
     state.inventory.splice(idx, 1);
     closeItemModal(); updateAllUI(); saveGame();
+}
+
+function handleLockItem() {
+    if (!selectedItemSource) return;
+    const { val, isEquipped } = selectedItemSource;
+    const item = isEquipped ? state.equipment[val] : state.inventory[val];
+    if (!item) return;
+    item.isLocked = !item.isLocked;
+    updateAllUI(); openItemModal(val, isEquipped); saveGame();
 }
 
 // --- Init ---
@@ -852,6 +872,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "btn-equip-item":        handleEquipItem,
         "btn-refine-item":       handleRefineItem,
         "btn-sell-item":         handleSellItem,
+        "btn-lock-item":         handleLockItem,
         "btn-sell-weaker":       () => {
             const totalStats = i => (i.atk||0) + (i.def||0) + (i.hp||0);
             sellFiltered(i => i.type !== 'rune' && state.equipment[i.type] && totalStats(i) < totalStats(state.equipment[i.type]), "");
