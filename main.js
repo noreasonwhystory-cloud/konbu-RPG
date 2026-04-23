@@ -625,6 +625,23 @@ function openItemModal(val, isEquipped) {
 }
 function closeItemModal() { document.getElementById("item-modal").classList.add("hidden"); }
 
+function exportSaveCode() {
+    const code = btoa(encodeURIComponent(JSON.stringify(state)));
+    const el = document.createElement('textarea'); el.value = code; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
+    alert("セーブコードをクリップボードにコピーしました。");
+}
+function importSaveCode() {
+    const code = prompt("セーブコードを入力してください:");
+    if (!code) return;
+    try {
+        const decoded = JSON.parse(decodeURIComponent(atob(code)));
+        if (decoded && decoded.hero) {
+            localStorage.setItem(SAVE_KEY, JSON.stringify(decoded));
+            location.reload();
+        } else { alert("無効なセーブコードです。"); }
+    } catch(e) { alert("セーブコードの読み込みに失敗しました。"); }
+}
+
 // --- Utils ---
 
 function refreshTavern() {
@@ -729,6 +746,8 @@ document.addEventListener("DOMContentLoaded", () => {
     
     document.getElementById("btn-save-game").onclick = () => { saveGame(); alert("セーブしました"); };
     document.getElementById("btn-reset-game").onclick = () => { if(confirm("本当にデータを初期化しますか？")) { localStorage.removeItem(SAVE_KEY); location.reload(); } };
+    document.getElementById("btn-export-code").onclick = exportSaveCode;
+    document.getElementById("btn-import-code").onclick = importSaveCode;
     
     document.getElementById("btn-dungeon-normal").onclick = () => switchDungeon('normal');
     document.getElementById("btn-dungeon-rune").onclick = () => switchDungeon('rune');
