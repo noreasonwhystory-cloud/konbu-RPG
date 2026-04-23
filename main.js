@@ -602,6 +602,26 @@ function openItemModal(val, isEquipped) {
             socks.appendChild(d);
         }
     }
+
+    // Comparison logic
+    const compEl = document.getElementById("modal-item-compare"); compEl.innerHTML = "";
+    if (!isEquipped && item.type !== 'rune') {
+        const cur = state.equipment[item.type];
+        if (cur) {
+            const diffAtk = (item.atk || 0) - (cur.atk || 0);
+            const diffDef = (item.def || 0) - (cur.def || 0);
+            const diffHp = (item.hp || 0) - (cur.hp || 0);
+            compEl.innerHTML = `
+                <div class="status-card" style="border-style: dashed; border-color: var(--text-muted)">
+                    <h4 style="font-size:0.7rem">現在の装備と比較:</h4>
+                    <div class="stat-grid" style="font-size:0.7rem">
+                        <div>ATK: ${diffAtk >= 0 ? '<span class="val-up">+' + diffAtk + '</span>' : '<span class="val-down">' + diffAtk + '</span>'}</div>
+                        <div>DEF: ${diffDef >= 0 ? '<span class="val-up">+' + diffDef + '</span>' : '<span class="val-down">' + diffDef + '</span>'}</div>
+                        <div>HP: ${diffHp >= 0 ? '<span class="val-up">+' + diffHp + '</span>' : '<span class="val-down">' + diffHp + '</span>'}</div>
+                    </div>
+                </div>`;
+        }
+    }
 }
 function closeItemModal() { document.getElementById("item-modal").classList.add("hidden"); }
 
