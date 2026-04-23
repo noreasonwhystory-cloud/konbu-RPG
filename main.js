@@ -735,23 +735,27 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     canvas.ontouchend = (e) => { if (!dragMoved && isDragging) handleBoardClick(lastMousePos.x, lastMousePos.y); isDragging = false; };
 
-    document.getElementById("btn-attack").onclick = () => executeAttack();
-    document.getElementById("btn-toggle-auto").onclick = () => { state.isAutoMode = !state.isAutoMode; updateBattleControls(); };
-    document.getElementById("btn-open-skills").onclick = openSkillModal;
-    document.getElementById("btn-close-skill-modal").onclick = closeSkillModal;
-    document.getElementById("btn-next-floor").onclick = nextFloor;
-    document.getElementById("btn-close-modal").onclick = closeItemModal;
-    document.getElementById("btn-close-rune-modal").onclick = () => document.getElementById("rune-modal").classList.add("hidden");
-    document.getElementById("hero-class-select").onchange = (e) => { state.hero.classId = e.target.value; updateAllUI(); saveGame(); };
+    const setClick = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
     
-    document.getElementById("btn-save-game").onclick = () => { saveGame(); alert("セーブしました"); };
-    document.getElementById("btn-reset-game").onclick = () => { if(confirm("本当にデータを初期化しますか？")) { localStorage.removeItem(SAVE_KEY); location.reload(); } };
-    document.getElementById("btn-export-code").onclick = exportSaveCode;
-    document.getElementById("btn-import-code").onclick = importSaveCode;
+    setClick("btn-attack", executeAttack);
+    setClick("btn-toggle-auto", () => { state.isAutoMode = !state.isAutoMode; updateBattleControls(); });
+    setClick("btn-open-skills", openSkillModal);
+    setClick("btn-close-skill-modal", closeSkillModal);
+    setClick("btn-next-floor", nextFloor);
+    setClick("btn-close-modal", closeItemModal);
+    setClick("btn-close-rune-modal", () => document.getElementById("rune-modal").classList.add("hidden"));
     
-    document.getElementById("btn-dungeon-normal").onclick = () => switchDungeon('normal');
-    document.getElementById("btn-dungeon-rune").onclick = () => switchDungeon('rune');
-    document.getElementById("btn-retreat").onclick = () => { if (state.floor > 1) { state.floor--; currentEnemy = null; startBattle(); } };
+    const classSelect = document.getElementById("hero-class-select");
+    if (classSelect) classSelect.onchange = (e) => { state.hero.classId = e.target.value; updateAllUI(); saveGame(); };
+    
+    setClick("btn-save-game", () => { saveGame(); alert("セーブしました"); });
+    setClick("btn-reset-game", () => { if(confirm("本当にデータを初期化しますか？")) { localStorage.removeItem(SAVE_KEY); location.reload(); } });
+    setClick("btn-export-code", exportSaveCode);
+    setClick("btn-import-code", importSaveCode);
+    
+    setClick("btn-dungeon-normal", () => switchDungeon('normal'));
+    setClick("btn-dungeon-rune", () => switchDungeon('rune'));
+    setClick("btn-retreat", () => { if (state.floor > 1) { state.floor--; currentEnemy = null; startBattle(); } });
     document.getElementById("btn-prestige").onclick = () => {
         if (state.floor < 10) { alert("10階以降で転生可能です"); return; }
         if (confirm("本当に転生しますか？神威ポイントを獲得し、進行度と所持品の一部がリセットされます。")) {
