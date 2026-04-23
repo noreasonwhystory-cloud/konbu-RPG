@@ -222,6 +222,8 @@ function getOptionValue(typeId, lvl, rarity) {
     let val = base * (1 + lvl * 0.1) * (0.5 + Math.random() * rMult);
     return isPct ? parseFloat(val.toFixed(3)) : Math.floor(val);
 }
+
+function generateNodes() {
     PASSIVE_NODES.length = 0;
     PASSIVE_NODES.push({ id: 'start', name: '起点', pos: { x: 0, y: 0 }, effect: { atk: 5 }, cost: 0, req: [] });
     
@@ -335,7 +337,7 @@ function getHeroTotalStats() {
     }
     atk *= currentClass.atkMult * kamuiMult; def *= currentClass.defMult * kamuiMult; maxHp *= currentClass.hpMult * kamuiMult;
 
-    let setCounts = {};
+    let setCounts = {}, rarCounts = {};
     for (const key in state.equipment) {
         const i = state.equipment[key];
         if (i) { 
@@ -623,7 +625,7 @@ function updateStatusUI() {
 
     const heroClass = CLASSES[state.hero.classId] || CLASSES.novice;
     const atkEl = (state.equipment.weapon && state.equipment.weapon.element !== 'none') ? state.equipment.weapon.element : heroClass.element;
-    const defEl = (state.equipment.armor && state.equipment.armor.element !== 'none') ? state.equipment.armor.element : heroClass.element;
+    const defEl = (state.equipment.body && state.equipment.body.element !== 'none') ? state.equipment.body.element : heroClass.element;
     
     const atkElemInfo = ELEMENTS[atkEl || 'none'];
     const defElemInfo = ELEMENTS[defEl || 'none'];
@@ -690,7 +692,7 @@ function updateInventoryUI() {
         const d = document.createElement("div"); d.className = `inv-item ${i.rarity ? i.rarity.colorClass : ""}`;
         
         // Ensure prefix exists (migration for older items)
-        if (!i.prefix) i.prefix = PREFIXES[randomInt(0, 2)];
+        if (!i.prefix) { const p = PREFIXES[randomInt(0, PREFIXES.length - 1)]; i.prefix = p.name; i.prefixData = p; }
         
         // Clean up legacy [Lv.X] from name
         let cleanName = (i.name || "装備").replace(/^\[Lv\.\d+\]\s*/, "");
