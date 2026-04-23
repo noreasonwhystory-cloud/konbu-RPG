@@ -61,15 +61,80 @@ let dragMoved = false;
 
 // --- Data Definitions ---
 
-const TITLES = [
-    { id: 'sl_slime_1', name: 'スライムハンター', req: { 'スライム': 10 }, bonus: { atk: 5 }, desc: 'スライム10体: ATK+5' },
-    { id: 'sl_slime_2', name: 'スライムキラー', req: { 'スライム': 50 }, bonus: { atk: 20 }, desc: 'スライム50体: ATK+20' },
-    { id: 'sl_slime_3', name: 'スライムマスター', req: { 'スライム': 200 }, bonus: { atkPct: 0.05 }, desc: 'スライム200体: ATK+5%' },
-    { id: 'fl_10', name: '冒険の始まり', req: { 'floor': 10 }, bonus: { hp: 20 }, desc: '10階到達: HP+20' },
-    { id: 'fl_100', name: '熟練の戦士', req: { 'floor': 100 }, bonus: { hpPct: 0.1 }, desc: '100階到達: HP+10%' },
-    { id: 'gd_10k', name: '商人の弟子', req: { 'gold': 10000 }, bonus: { goldPct: 0.1 }, desc: '10,000G: Gold+10%' },
-    { id: 'cl_100', name: '目利き', req: { 'total_loot': 100 }, bonus: { dropPct: 0.15 }, desc: '100個獲得: Drop+15%' }
-];
+const TITLES = [];
+function generateTitles() {
+    TITLES.length = 0;
+    const add = (id, name, req, bonus, desc) => TITLES.push({ id, name, req, bonus, desc });
+
+    // 1. Monster Slayers (30 titles)
+    const monsters = [
+        { key: 'スライム', n: 'スライム', stat: 'hp', v: 10 },
+        { key: 'ゴブリン', n: 'ゴブリン', stat: 'atk', v: 2 },
+        { key: 'ウルフ', n: 'ウルフ', stat: 'avoid', v: 0.005 },
+        { key: 'オーク', n: 'オーク', stat: 'def', v: 2 },
+        { key: 'ドラゴン', n: 'ドラゴン', stat: 'atkPct', v: 0.01 }
+    ];
+    const killTiers = [
+        { c: 10, p: 'ハンター' }, { c: 50, p: 'キラー' }, { c: 200, p: 'スレイヤー' },
+        { c: 500, p: 'マスター' }, { c: 1000, p: '覇者' }, { c: 5000, p: '神' }
+    ];
+    monsters.forEach(m => {
+        killTiers.forEach((t, i) => {
+            const bonusVal = (i + 1) * m.v;
+            add(`sl_${m.key}_${t.c}`, `${m.n}${t.p}`, { [m.key]: t.c }, { [m.stat]: bonusVal }, `${m.n}${t.c}体討伐: ${m.stat.toUpperCase()}+${m.stat.includes('Pct')||m.stat.includes('avoid')?(bonusVal*100).toFixed(1)+'%':bonusVal}`);
+        });
+    });
+
+    // 2. Floor Reach (12 titles)
+    [10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000].forEach(f => {
+        add(`fl_${f}`, `${f}階の開拓者`, { floor: f }, { hp: f }, `${f}階到達: HP+${f}`);
+    });
+
+    // 3. Wealth (6 titles)
+    [10000, 100000, 1000000, 10000000, 100000000, 1000000000].forEach((g, i) => {
+        add(`gd_${g}`, i<3 ? `小金持ち` : `大富豪`, { gold: g }, { goldPct: 0.05 * (i+1) }, `${g.toLocaleString()}G所持: Gold+${5*(i+1)}%`);
+    });
+
+    // 4. Loot & Rarities (15 titles)
+    [100, 500, 1000, 5000, 10000].forEach(l => {
+        add(`lt_${l}`, `収集家 Lv.${l/100}`, { total_loot: l }, { dropPct: 0.05 * (l/500+1) }, `アイテム${l}個獲得: Drop+${(5*(l/500+1)).toFixed(0)}%`);
+    });
+    ['rare', 'epic', 'legendary'].forEach(r => {
+        [1, 10, 50, 100].forEach(c => {
+            add(`lr_${r}_${c}`, `${r.toUpperCase()}マニア`, { [`loot_${r}`]: c }, { atkPct: 0.02 * (c/10+1) }, `${r}品${c}個獲得: ATK+${(2*(c/10+1)).toFixed(0)}%`);
+        });
+    });
+
+    // 5. Boss Killers (5 titles)
+    [1, 10, 50, 100, 500].forEach(c => {
+        add(`bk_${c}`, `ジャイアントキリング`, { total_boss_kills: c }, { skillDmg: 0.05 * (Math.log10(c)+1) }, `ボス${c}体討伐: Skill+${(5*(Math.log10(c)+1)).toFixed(0)}%`);
+    });
+
+    // 6. Prestige & Kamui (10 titles)
+    [1, 5, 10, 20, 50].forEach(c => {
+        add(`pr_${c}`, `輪廻の旅人`, { prestige_count: c }, { statsBonus: 0.02 * c }, `転生${c}回: 全ステ+${2*c}%`);
+    });
+    [10, 100, 1000, 5000, 10000].forEach(c => {
+        add(`km_${c}`, `神に愛されし者`, { kamui: c }, { atk: c/10 }, `神威${c}獲得: ATK+${c/10}`);
+    });
+
+    // 7. Refine & Konbu (10 titles)
+    [10, 50, 100, 500, 1000].forEach(c => {
+        add(`rf_${c}`, `鍛冶職人`, { refine_count: c }, { def: c/5 }, `強化${c}回: DEF+${c/5}`);
+    });
+    [1, 10, 50, 100, 500].forEach(c => {
+        add(`kb_${c}`, `昆布マイスター`, { konbu_count: c }, { hpPct: 0.01 * (Math.log10(c+1)*5) }, `魂武${c}獲得: HP+${(Math.log10(c+1)*5).toFixed(1)}%`);
+    });
+
+    // 8. Level & Hired (12 titles)
+    [10, 50, 100, 200, 500, 1000].forEach(l => {
+        add(`lv_${l}`, `熟練の冒険者`, { hero_level: l }, { atk: l, def: l/2 }, `Lv.${l}到達: ATK+${l}/DEF+${l/2}`);
+    });
+    [1, 10, 50, 100, 500, 1000].forEach(c => {
+        add(`hr_${c}`, `指揮官`, { total_hired: c }, { mercAtk: 0.1 * (Math.log10(c+1)*2) }, `計${c}人雇用: 仲間の攻撃力UP`);
+    });
+}
+generateTitles();
 
 const CLASSES = {
     novice: { name: "見習い", hpPerLvl: 5, atkPerLvl: 1, defPerLvl: 0.5, atkMult: 1.0, defMult: 1.0, hpMult: 1.0, element: 'none', skills: [ { id: 'bash', name: 'バッシュ', unlockLvl: 1, mult: 1.5, cd: 3, desc: '1.5倍ダメ' } ] },
@@ -205,7 +270,15 @@ function getHeroTotalStats() {
     // Title
     if (state.currentTitleId) {
         const t = TITLES.find(tx => tx.id === state.currentTitleId);
-        if (t && t.bonus) { if (t.bonus.atk) atk += t.bonus.atk; if (t.bonus.atkPct) atk *= (1 + t.bonus.atkPct); }
+        if (t && t.bonus) { 
+            if (t.bonus.atk) atk += t.bonus.atk; 
+            if (t.bonus.atkPct) atk *= (1 + t.bonus.atkPct); 
+            if (t.bonus.def) def += t.bonus.def;
+            if (t.bonus.defPct) def *= (1 + t.bonus.defPct);
+            if (t.bonus.hp) maxHp += t.bonus.hp;
+            if (t.bonus.hpPct) maxHp *= (1 + t.bonus.hpPct);
+            if (t.bonus.statsBonus) { atk *= (1+t.bonus.statsBonus); def *= (1+t.bonus.statsBonus); maxHp *= (1+t.bonus.statsBonus); }
+        }
     }
     atk *= currentClass.atkMult * kamuiMult; def *= currentClass.defMult * kamuiMult; maxHp *= currentClass.hpMult * kamuiMult;
 
@@ -351,6 +424,9 @@ function generateLoot(fl) {
         item.hp = fl * 10; 
     }
     for(let s=0; s<item.socketCount; s++) item.sockets.push(null);
+    if (rar.name === 'レア') state.achievements.loot_rare = (state.achievements.loot_rare || 0) + 1;
+    if (rar.name === 'エピック') state.achievements.loot_epic = (state.achievements.loot_epic || 0) + 1;
+    if (rar.name === 'レジェンダリー') state.achievements.loot_legendary = (state.achievements.loot_legendary || 0) + 1;
     state.inventory.push(item); state.achievements.total_loot++;
 }
 function generateRune() {
@@ -397,11 +473,23 @@ function updateStatusUI() {
     document.getElementById("hero-avoid").innerText = (stats.avoid * 100).toFixed(1) + "%";
     
     const tList = document.getElementById("title-list"); if (tList) {
-        tList.innerHTML = ""; TITLES.forEach(t => {
-            const unlocked = Object.keys(t.req).every(k => (state.achievements[k] || state.achievements.kills[k] || state[k] || 0) >= t.req[k]);
+        tList.innerHTML = ""; 
+        TITLES.forEach(t => {
+            const unlocked = Object.keys(t.req).every(k => {
+                const val = (state.achievements[k] !== undefined) ? state.achievements[k] :
+                            (state.achievements.kills[k] !== undefined) ? state.achievements.kills[k] :
+                            (state[k] !== undefined) ? state[k] : 
+                            (k === 'hero_level') ? state.hero.level : 0;
+                return val >= t.req[k];
+            });
+            if (!unlocked && TITLES.indexOf(t) > 20 && !state.currentTitleId === t.id) return; // Hide many locked titles to avoid clutter
             const d = document.createElement("div"); d.className = `status-card mt-1 ${unlocked?'':'locked'}`;
             d.innerHTML = `<div><strong>${t.name}</strong><br><small>${t.desc}</small></div>`;
-            if (unlocked) { const b = document.createElement("button"); b.className="btn-sm mt-1"; b.innerText = state.currentTitleId === t.id ? "装備中" : "装備"; b.onclick=()=>{state.currentTitleId=t.id; updateAllUI();}; d.appendChild(b); }
+            if (unlocked) { 
+                const b = document.createElement("button"); b.className="btn-sm mt-1"; 
+                b.innerText = state.currentTitleId === t.id ? "装備中" : "装備"; 
+                b.onclick=()=>{state.currentTitleId=t.id; updateAllUI(); saveGame();}; d.appendChild(b); 
+            }
             tList.appendChild(d);
         });
     }
@@ -707,7 +795,7 @@ function startBattle() {
 function nextFloor() { state.floor++; currentEnemy = null; canProceed = false; isActing = false; updateHeroHP(getHeroTotalStats().maxHp * 0.1); if(state.floor%5===0) refreshTavern(); startBattle(); }
 
 // --- Global Functions ---
-window.hireMercenary = (i) => { const m = availableMercs[i]; if (state.gold >= m.price && state.party.length < 3) { state.gold -= m.price; state.party.push(m); availableMercs.splice(i, 1); updateAllUI(); saveGame(); } };
+window.hireMercenary = (i) => { const m = availableMercs[i]; if (state.gold >= m.price && state.party.length < 3) { state.gold -= m.price; state.party.push(m); availableMercs.splice(i, 1); state.achievements.total_hired = (state.achievements.total_hired || 0) + 1; updateAllUI(); saveGame(); } };
 window.dismissMercenary = (i) => { state.party.splice(i, 1); updateAllUI(); saveGame(); };
 window.buyKamuiUpgrade = (k) => { if (state.kamui >= 1) { state.kamui -= 1; state.kamuiUpgrades[k]++; updateAllUI(); saveGame(); } };
 window.rerollOption = (val, isEquipped, idx) => { const item = isEquipped ? state.equipment[val] : state.inventory[val]; if (state.gold >= 100) { state.gold -= 100; item.options[idx].val = randomInt(1, 10); updateAllUI(); openItemModal(val, isEquipped); saveGame(); } };
@@ -769,6 +857,7 @@ function handlePrestige() {
     if (state.floor < 10) { alert("10階以降で転生可能です"); return; }
     if (!confirm("本当に転生しますか？神威ポイントを獲得し、進行階層とゴールドがリセットされます（装備品は維持されます）。")) return;
     state.kamui += Math.floor(state.floor / 5);
+    state.achievements.prestige_count = (state.achievements.prestige_count || 0) + 1;
     state.floor = 1; state.gold = 0;
     currentEnemy = null; updateAllUI(); startBattle(); saveGame();
 }
