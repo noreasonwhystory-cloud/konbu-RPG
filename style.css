@@ -14,11 +14,11 @@
     --rarity-legendary: #fbbf24;
 }
 
-.rarity-common { color: var(--rarity-common); }
-.rarity-uncommon { color: var(--rarity-uncommon); }
-.rarity-rare { color: var(--rarity-rare); }
-.rarity-epic { color: var(--rarity-epic); }
-.rarity-legendary { color: var(--rarity-legendary); }
+.rarity-common { color: var(--rarity-common); border-color: var(--rarity-common) !important; }
+.rarity-uncommon { color: var(--rarity-uncommon); border-color: var(--rarity-uncommon) !important; }
+.rarity-rare { color: var(--rarity-rare); border-color: var(--rarity-rare) !important; }
+.rarity-epic { color: var(--rarity-epic); border-color: var(--rarity-epic) !important; }
+.rarity-legendary { color: var(--rarity-legendary); border-color: var(--rarity-legendary) !important; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
