@@ -575,9 +575,9 @@ function refreshTavern() {
 function updateAllUI() {
     updateClassSelectorUI();
     updateHeaderUI(); updateStatusUI(); updateEquipmentUI(); updateInventoryUI(); updatePartyUI(); updateKamuiUI(); updateBattleControls(); updateEnemyHP();
-    // Update Hero Sprite
+    // Update Hero Sprite (Always use hero.png as per user request)
     const heroSprite = document.getElementById("hero-sprite");
-    if (heroSprite) heroSprite.src = "assets/" + (CLASSES[state.hero.classId]?.image || "hero.png");
+    if (heroSprite) heroSprite.src = "assets/hero.png";
 }
 
 function updateClassSelectorUI() {
