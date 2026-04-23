@@ -461,46 +461,56 @@ function logMessage(msg, type = "normal") {
 function executeAttack(multiplier = 1, isSkill = false) {
     if (!currentEnemy || canProceed || isActing) return;
     isActing = true; updateBattleControls();
-    const stats = getHeroTotalStats();
-    let isCrit = Math.random() < stats.crit;
-    let baseDmg = isCrit ? stats.atk * 2 : stats.atk;
-    const heroClass = CLASSES[state.hero.classId] || CLASSES.novice;
-    const heroElem = (state.equipment.weapon && state.equipment.weapon.element !== 'none') 
-                     ? state.equipment.weapon.element 
-                     : (heroClass.element || 'none');
-    const eMult = getElementMult(heroElem, currentEnemy.element);
-    let dmg = Math.max(1, Math.floor((baseDmg * eMult - currentEnemy.def) * multiplier) + randomInt(-2, 2));
-    currentEnemy.hp -= dmg;
-    
-    const heroEl = document.querySelector(".hero"); if (heroEl) { heroEl.classList.remove("attack-anim-hero"); void heroEl.offsetWidth; heroEl.classList.add("attack-anim-hero"); }
-    logMessage(`${isSkill ? '特技！' : ''}${isCrit ? '[CRI] ' : ''}勇者の攻撃！ ${dmg}ダメージ`);
+    try {
+        const stats = getHeroTotalStats();
+        let isCrit = Math.random() < stats.crit;
+        let baseDmg = isCrit ? stats.atk * 2 : stats.atk;
+        const heroClass = CLASSES[state.hero.classId] || CLASSES.novice;
+        const heroElem = (state.equipment.weapon && state.equipment.weapon.element !== 'none') 
+                         ? state.equipment.weapon.element 
+                         : (heroClass.element || 'none');
+        const eMult = getElementMult(heroElem, currentEnemy.element);
+        let dmg = Math.max(1, Math.floor((baseDmg * eMult - currentEnemy.def) * multiplier) + randomInt(-2, 2));
+        currentEnemy.hp -= dmg;
+        
+        const heroEl = document.querySelector(".hero"); if (heroEl) { heroEl.classList.remove("attack-anim-hero"); void heroEl.offsetWidth; heroEl.classList.add("attack-anim-hero"); }
+        logMessage(`${isSkill ? '特技！' : ''}${isCrit ? '[CRI] ' : ''}勇者の攻撃！ ${dmg}ダメージ`);
 
-    if (state.unlockedNodes.includes('keystone_meteor') && Math.random() < 0.05) {
-        const mDmg = stats.atk * 5; currentEnemy.hp -= mDmg; logMessage(`メテオ！ ${mDmg}ダメージ`, "loot");
-    }
-    updateEnemyHP();
-    if (currentEnemy.hp <= 0) onEnemyDefeated();
-    else {
-        state.party.forEach(m => { if (currentEnemy && currentEnemy.hp > 0) { let d = Math.max(1, m.atk - currentEnemy.def*0.5); currentEnemy.hp -= d; logMessage(`${m.name}の追撃！ ${d}ダメージ`, "merc"); } });
+        if (state.unlockedNodes.includes('keystone_meteor') && Math.random() < 0.05) {
+            const mDmg = stats.atk * 5; currentEnemy.hp -= mDmg; logMessage(`メテオ！ ${mDmg}ダメージ`, "loot");
+        }
         updateEnemyHP();
         if (currentEnemy.hp <= 0) onEnemyDefeated();
-        else setTimeout(enemyTurn, 600);
+        else {
+            state.party.forEach(m => { if (currentEnemy && currentEnemy.hp > 0) { let d = Math.max(1, m.atk - currentEnemy.def*0.5); currentEnemy.hp -= d; logMessage(`${m.name}の追撃！ ${d}ダメージ`, "merc"); } });
+            updateEnemyHP();
+            if (currentEnemy.hp <= 0) onEnemyDefeated();
+            else setTimeout(enemyTurn, 600);
+        }
+    } catch (e) {
+        console.error('executeAttack error:', e);
+        isActing = false; updateBattleControls();
     }
 }
 
 function enemyTurn() {
-    if (!currentEnemy || currentEnemy.hp <= 0 || canProceed) { isActing = false; updateBattleControls(); return; }
-    const stats = getHeroTotalStats();
-    if (Math.random() < stats.avoid) { logMessage("回避！"); isActing = false; updateBattleControls(); return; }
-    const heroClass = CLASSES[state.hero.classId] || CLASSES.novice;
-    const defenseElem = (state.equipment.body && state.equipment.body.element !== 'none') 
-                        ? state.equipment.body.element 
-                        : (heroClass.element || 'none');
-    const eMult = getElementMult(currentEnemy.element, defenseElem);
-    let d = Math.max(1, Math.floor(currentEnemy.atk * eMult - stats.def*0.5) + randomInt(-2, 2));
-    state.hero.hp -= d; updateHeroHP(0); logMessage(`${currentEnemy.name}の攻撃！ ${d}ダメージ`, "danger");
-    if (state.hero.hp <= 0) { logMessage("敗北...", "danger"); state.floor = 1; state.hero.hp = getHeroTotalStats().maxHp; currentEnemy = null; canProceed = false; isActing = false; startBattle(); }
-    else { isActing = false; updateBattleControls(); }
+    try {
+        if (!currentEnemy || currentEnemy.hp <= 0 || canProceed) { isActing = false; updateBattleControls(); return; }
+        const stats = getHeroTotalStats();
+        if (Math.random() < stats.avoid) { logMessage("回避！"); isActing = false; updateBattleControls(); return; }
+        const heroClass = CLASSES[state.hero.classId] || CLASSES.novice;
+        const defenseElem = (state.equipment.body && state.equipment.body.element !== 'none') 
+                            ? state.equipment.body.element 
+                            : (heroClass.element || 'none');
+        const eMult = getElementMult(currentEnemy.element, defenseElem);
+        let d = Math.max(1, Math.floor(currentEnemy.atk * eMult - stats.def*0.5) + randomInt(-2, 2));
+        state.hero.hp -= d; updateHeroHP(0); logMessage(`${currentEnemy.name}の攻撃！ ${d}ダメージ`, "danger");
+        if (state.hero.hp <= 0) { logMessage("敗北...", "danger"); state.floor = 1; state.hero.hp = getHeroTotalStats().maxHp; currentEnemy = null; canProceed = false; isActing = false; startBattle(); }
+        else { isActing = false; updateBattleControls(); }
+    } catch (e) {
+        console.error('enemyTurn error:', e);
+        isActing = false; updateBattleControls();
+    }
 }
 
 function onEnemyDefeated() {
@@ -620,6 +630,7 @@ function updateAllUI() {
     document.getElementById("gold-amount").innerText = state.gold;
     document.getElementById("kamui-amount").innerText = state.kamui;
     updateStatusUI(); updateEquipmentUI(); updateInventoryUI(); updatePartyUI(); updateKamuiUI(); updateCasinoUI(); updateBattleControls(); updateEnemyHP();
+    bindAllButtons(); // Re-bind buttons every update cycle to prevent stale handlers
     drawPassiveBoard();
 }
 
@@ -1041,7 +1052,17 @@ function startBattle() {
             element: randElem
         };
     }
-    if (!battleInterval) battleInterval = setInterval(() => { if (state.isAutoMode && canProceed) nextFloor(); if (state.isAutoMode && !isActing && !canProceed) executeAttack(); }, 1000);
+    if (!battleInterval) battleInterval = setInterval(() => { 
+        try {
+            // Safety: reset stuck isActing after 3 seconds
+            if (isActing) {
+                if (!window._actingTimer) window._actingTimer = Date.now();
+                if (Date.now() - window._actingTimer > 3000) { isActing = false; window._actingTimer = null; }
+            } else { window._actingTimer = null; }
+            if (state.isAutoMode && canProceed) nextFloor(); 
+            if (state.isAutoMode && !isActing && !canProceed) executeAttack(); 
+        } catch (e) { console.error('Auto-battle error:', e); isActing = false; }
+    }, 1000);
     updateAllUI();
 }
 
@@ -1297,6 +1318,42 @@ function handleLockItem() {
     updateAllUI(); openItemModal(val, isEquipped); saveGame();
 }
 
+// --- Button Bindings ---
+const BUTTON_MAP = {
+    "btn-attack":            () => executeAttack(),
+    "btn-toggle-auto":       () => { state.isAutoMode = !state.isAutoMode; updateBattleControls(); },
+    "btn-open-skills":       openSkillModal,
+    "btn-close-skill-modal": closeSkillModal,
+    "btn-next-floor":        nextFloor,
+    "btn-close-modal":       closeItemModal,
+    "btn-close-rune-modal":  () => $("rune-modal").classList.add("hidden"),
+    "btn-save-game":         () => { saveGame(); alert("セーブしました"); },
+    "btn-reset-game":        () => { if (confirm("本当にデータを初期化しますか？")) { localStorage.removeItem(SAVE_KEY); location.reload(); } },
+    "btn-export-code":       exportSaveCode,
+    "btn-import-code":       importSaveCode,
+    "btn-dungeon-normal":    () => switchDungeon('normal'),
+    "btn-dungeon-rune":      () => switchDungeon('rune'),
+    "btn-retreat":           () => { if (state.floor > 1) { state.floor--; currentEnemy = null; startBattle(); } },
+    "btn-prestige":          handlePrestige,
+    "btn-equip-item":        handleEquipItem,
+    "btn-refine-item":       handleRefineItem,
+    "btn-sell-item":         handleSellItem,
+    "btn-lock-item":         handleLockItem,
+    "btn-sell-weaker":       () => {
+        const totalStats = i => (i.atk||0) + (i.def||0) + (i.hp||0);
+        sellFiltered(i => i.type !== 'rune' && state.equipment[i.type] && totalStats(i) < totalStats(state.equipment[i.type]), "");
+    },
+    "btn-sell-all":          () => sellFiltered(i => i.type !== 'rune' && i.rarity && i.rarity.name === 'コモン', "コモン"),
+    "btn-casino-new":        generateCasinoRound,
+    "btn-casino-settle":     settleCasino,
+};
+
+function bindAllButtons() {
+    for (const [id, fn] of Object.entries(BUTTON_MAP)) setClick(id, fn);
+}
+
+window.startCasinoWait = startCasinoWait;
+
 // --- Init ---
 document.addEventListener("DOMContentLoaded", () => {
     loadGame();
@@ -1334,36 +1391,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     canvas.ontouchend = () => { if (!dragMoved && isDragging) handleBoardClick(lastMousePos.x, lastMousePos.y); isDragging = false; };
 
-    // Button bindings (declarative)
-    const buttons = {
-        "btn-attack":            executeAttack,
-        "btn-toggle-auto":       () => { state.isAutoMode = !state.isAutoMode; updateBattleControls(); },
-        "btn-open-skills":       openSkillModal,
-        "btn-close-skill-modal": closeSkillModal,
-        "btn-next-floor":        nextFloor,
-        "btn-close-modal":       closeItemModal,
-        "btn-close-rune-modal":  () => $("rune-modal").classList.add("hidden"),
-        "btn-save-game":         () => { saveGame(); alert("セーブしました"); },
-        "btn-reset-game":        () => { if (confirm("本当にデータを初期化しますか？")) { localStorage.removeItem(SAVE_KEY); location.reload(); } },
-        "btn-export-code":       exportSaveCode,
-        "btn-import-code":       importSaveCode,
-        "btn-dungeon-normal":    () => switchDungeon('normal'),
-        "btn-dungeon-rune":      () => switchDungeon('rune'),
-        "btn-retreat":           () => { if (state.floor > 1) { state.floor--; currentEnemy = null; startBattle(); } },
-        "btn-prestige":          handlePrestige,
-        "btn-equip-item":        handleEquipItem,
-        "btn-refine-item":       handleRefineItem,
-        "btn-sell-item":         handleSellItem,
-        "btn-lock-item":         handleLockItem,
-        "btn-sell-weaker":       () => {
-            const totalStats = i => (i.atk||0) + (i.def||0) + (i.hp||0);
-            sellFiltered(i => i.type !== 'rune' && state.equipment[i.type] && totalStats(i) < totalStats(state.equipment[i.type]), "");
-        },
-        "btn-sell-all":          () => sellFiltered(i => i.type !== 'rune' && i.rarity && i.rarity.name === 'コモン', "コモン"),
-        "btn-casino-new":        generateCasinoRound,
-        "btn-casino-settle":     settleCasino,
-    };
-    for (const [id, fn] of Object.entries(buttons)) setClick(id, fn);
+    bindAllButtons();
 
     const classSelect = $("hero-class-select");
     if (classSelect) classSelect.onchange = e => { state.hero.classId = e.target.value; updateAllUI(); saveGame(); };
